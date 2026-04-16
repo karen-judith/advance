@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: advance-trading-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: advance-trading
+  template:
+    metadata:
+      labels:
+        app: advance-trading
+    spec:
+      containers:
+        - name: frontend
+          image: tu-usuario/advance-trading-frontend:latest
+          ports:
+            - containerPort: 80
+        - name: backend
+          image: tu-usuario/advance-trading-backend:latest
+          ports:
+            - containerPort: 5000
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://postgres:postgres@advance-trading-db:5432/advance"

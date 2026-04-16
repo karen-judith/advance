@@ -1,0 +1,12 @@
+CREATE TABLE IF NOT EXISTS monedas (
+    id SERIAL PRIMARY KEY,
+    symbol VARCHAR(10) NOT NULL,
+    price NUMERIC NOT NULL
+);
+
+INSERT INTO monedas (symbol, price) VALUES
+('BTC', 63284.50),
+('ETH', 3450.20),
+('BNB', 590.30),
+('SOL', 145.80)
+ON CONFLICT DO NOTHING;

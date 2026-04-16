@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Advance • Trading Mobile App</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #a855f7; --secondary: #ec4899; --accent: #22d3ee;
+            --success: #10b981; --danger: #ef4444; 
+            --bg-dark: #090614; --bg-mid: #16102b;
+            --text-main: #f8fafc; --text-muted: #94a3b8;
+            --glass-bg: rgba(34, 24, 66, 0.4); --glass-border: rgba(168, 85, 247, 0.2);
+            --bottom-nav-height: 75px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: linear-gradient(135deg, var(--bg-dark), var(--bg-mid)); background-attachment: fixed; color: var(--text-main); min-height: 100vh; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
+        
+        .glass { background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--glass-border); border-radius: 20px; }
+        .gradient-text { background: linear-gradient(to right, var(--accent), var(--primary), var(--secondary)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        
+        .screen { display: none; width: 100%; min-height: 100vh; animation: fadeIn 0.4s ease; padding-bottom: calc(var(--bottom-nav-height) + 15px); }
+        .screen.active { display: block; }
+        .tab-content { display: none; padding: 20px 20px 0; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: block; }
+
+        .header { background: rgba(9, 6, 20, 0.85); backdrop-filter: blur(10px); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); position: sticky; top: 0; z-index: 50; }
+        .logo { font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+        .user-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--primary); object-fit: cover; cursor: pointer; transition: 0.3s; }
+        
+        /* Auth */
+        .auth-container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        .auth-card { width: 100%; max-width: 400px; padding: 35px 25px; text-align: center; }
+        .input-group { position: relative; margin-bottom: 18px; }
+        .input-group i { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+        .auth-card input { width: 100%; padding: 16px 16px 16px 45px; background: rgba(0,0,0,0.3); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 12px; color: white; font-size: 1rem; transition: 0.3s; }
+        .auth-card input:focus { border-color: var(--primary); outline: none; box-shadow: inset 0 0 10px rgba(168,85,247,0.2); }
+        .btn { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: 700; font-size: 1rem; cursor: pointer; margin-top: 10px; display:flex; align-items:center; justify-content:center; gap: 10px; transition: 0.3s; }
+        .btn-primary { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; }
+        .btn-primary:active { transform: scale(0.97); }
+        .btn-secondary { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+
+        /* UI Elements */
+        .portfolio-label { color: var(--text-muted); font-size: 0.9rem; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; }
+        .portfolio-balance { font-size: 2.8rem; font-weight: 800; margin: 0; line-height: 1.1; }
+        .portfolio-change { display: inline-flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.15); color: var(--success); padding: 6px 12px; border-radius: 100px; font-weight: 600; font-size: 0.9rem; margin-top: 12px; border: 1px solid rgba(16, 185, 129, 0.2); }
+        
+        /* Actions Bar */
+        .actions-bar { display: flex; gap: 12px; margin-top: 25px; }
+        .action-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--glass-bg); border: 1px solid var(--glass-border); padding: 16px 5px; border-radius: 18px; color: var(--text-main); font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .action-btn i { font-size: 1.4rem; margin-bottom: 8px; }
+        .c-buy i { color: var(--success); } .c-sell i { color: var(--danger); } .c-swap i { color: var(--accent); }
+
+        /* Market List & Coins */
+        .market-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+        .coin-item { display: flex; justify-content: space-between; align-items: center; padding: 16px; background: rgba(255,255,255,0.02); border-radius: 18px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.04); }
+        .coin-info { display: flex; align-items: center; gap: 14px; }
+        .coin-icon { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: white; }
+        .coin-name-group h4 { font-size: 1.1rem; font-weight: 700; margin: 0; }
+        .coin-name-group span { font-size: 0.85rem; color: var(--text-muted); font-weight: 500;}
+        .coin-price { font-size: 1.1rem; font-weight: 700; text-align: right; margin: 0; }
+        .coin-change { font-size: 0.85rem; font-weight: 700; padding: 4px 8px; border-radius: 6px; display: inline-block; margin-top: 5px; }
+
+        /* Custom Inputs (Exchange & Futuros) */
+        .trade-card { padding: 25px; text-align: center; margin-bottom: 20px; }
+        .input-trade { width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); padding: 20px; border-radius: 16px; color: white; font-size: 1.5rem; font-weight: 700; text-align: right; outline: none; margin-top: 10px; }
+        .input-trade:focus { border-color: var(--primary); }
+        .trade-label { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 0.9rem; font-weight: 600; }
+        .swap-icon { font-size: 1.5rem; color: var(--primary); margin: 15px 0; background: rgba(0,0,0,0.3); width: 45px; height: 45px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--glass-border); cursor:pointer; }
+        .slider { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 5px; outline: none; margin: 25px 0; }
+        .slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(--primary); cursor: pointer; border: 2px solid white; }
+
+        /* Buttons Grid for Futuros */
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .btn-long { background: linear-gradient(135deg, var(--success), #059669); color: white; }
+        .btn-short { background: linear-gradient(135deg, var(--danger), #b91c1c); color: white; }
+
+        /* Bottom Tab Bar */
+        .tab-bar { position: fixed; bottom: 0; left: 0; width: 100%; height: var(--bottom-nav-height); background: rgba(9, 6, 20, 0.95); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); display: flex; justify-content: space-around; align-items: center; border-top: 1px solid var(--glass-border); z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
+        .tab-item { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--text-muted); cursor: pointer; transition: 0.3s; flex: 1; padding: 10px 0; }
+        .tab-item i { font-size: 1.4rem; }
+        .tab-item span { font-size: 0.75rem; font-weight: 600; }
+        .tab-item.active { color: var(--primary); }
+        .tab-center { background: linear-gradient(135deg, var(--primary), var(--secondary)); width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-top: -25px; box-shadow: 0 8px 20px rgba(168, 85, 247, 0.4); color: white; border: 4px solid var(--bg-dark); }
+        
+        .ic-btc { background: linear-gradient(135deg, #f7931a, #f37107); }
+        .ic-eth { background: linear-gradient(135deg, #627eea, #3b5ca9); }
+        .ic-sol { background: linear-gradient(135deg, #00ffa3, #dc1fff); }
+        .ic-bnb { background: linear-gradient(135deg, #f3ba2f, #dca11c); }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<input type="file" id="avatar-upload" accept="image/*" style="display:none;" onchange="updateAvatar(event)">
+
+<!-- LogIn -->
+<div id="login-screen" class="screen auth-container active">
+    <div class="auth-card glass">
+        <div class="logo auth-logo gradient-text" style="margin-bottom:20px;"><i class="fa-solid fa-layer-group"></i> ADVANCE</div>
+        <h2 style="margin-bottom:25px; font-weight:800;">Iniciar Sesión</h2>
+        <div class="input-group"><i class="fa-solid fa-envelope"></i><input type="email" id="login-email" placeholder="Correo" value="demo@advance.com"></div>
+        <div class="input-group"><i class="fa-solid fa-lock"></i><input type="password" id="login-pass" placeholder="Clave" value="123456"></div>
+        <button class="btn btn-primary" onclick="login()">Entrar</button>
+        <button class="btn btn-secondary" onclick="showScreen('register-screen')">Registrarse</button>
+    </div>
+</div>
+
+<!-- Register -->
+<div id="register-screen" class="screen auth-container">
+    <div class="auth-card glass">
+        <h2 style="margin-bottom:25px; font-weight:800;">Crear Cuenta</h2>
+        <div class="input-group"><i class="fa-solid fa-user"></i><input type="text" id="reg-name" placeholder="Nombre completo"></div>
+        <div class="input-group"><i class="fa-solid fa-envelope"></i><input type="email" id="reg-email" placeholder="Correo electrónico"></div>
+        <div class="input-group"><i class="fa-solid fa-lock"></i><input type="password" id="reg-pass" placeholder="Contraseña"></div>
+        <button class="btn btn-primary" onclick="sendVerificationCode()"><i class="fa-solid fa-paper-plane"></i> Enviar Código</button>
+        
+        <div id="verification-step" style="display:none; margin-top:20px; border-top: 1px solid var(--glass-border); padding-top: 20px;">
+            <div class="input-group"><i class="fa-solid fa-shield"></i><input type="text" id="reg-code" placeholder="Código"></div>
+            <button class="btn btn-primary" style="background:#10b981;" onclick="registerUser()">Verificar y Crear</button>
+        </div>
+        <button class="btn btn-secondary" onclick="showScreen('login-screen')">Volver</button>
+    </div>
+</div>
+
+<!-- Settings -->
+<div id="settings-screen" class="screen">
+    <header class="header">
+        <div style="display:flex; align-items:center; gap:15px;">
+            <i class="fa-solid fa-arrow-left" style="font-size:1.3rem; cursor:pointer;" onclick="showScreen('main-app')"></i>
+            <h2 style="font-size:1.3rem; margin:0;">Configuración</h2>
+        </div>
+    </header>
+    <div style="padding: 20px;">
+        <div class="glass" style="padding: 20px; display:flex; align-items:center; gap:18px; margin-bottom:30px; cursor:pointer;" onclick="document.getElementById('avatar-upload').click()">
+            <img src="https://i.pravatar.cc/150?img=68" class="user-avatar profile-pic" style="width:70px; height:70px;">
+            <div><h3 style="font-size:1.3rem;">Usuario Demo</h3><span style="color:var(--text-muted); font-size:0.95rem;">demo@advance.com</span></div>
+        </div>
+        <button class="btn btn-secondary" style="border-color:var(--danger); color:var(--danger);" onclick="logout()">Cerrar Sesión</button>
+    </div>
+</div>
+
+<!-- Main App Container -->
+<div id="main-app" class="screen">
+    <!-- Header -->
+    <header class="header">
+        <div class="logo gradient-text">ADVANCE</div>
+        <div style="display:flex; gap:20px; align-items:center;">
+            <i class="fa-solid fa-gear" style="font-size:1.3rem; color:var(--text-muted); cursor:pointer;" onclick="showScreen('settings-screen')"></i>
+            <img src="https://i.pravatar.cc/150?img=68" class="user-avatar profile-pic" onclick="document.getElementById('avatar-upload').click()">
+        </div>
+    </header>
+
+    <!-- TABS CONTENT -->
+
+    <!-- TAB: TRADING (Inicio) -->
+    <div id="tab-trading" class="tab-content active">
+        <div>
+            <div class="portfolio-label">Balance Total Estimado</div>
+            <h1 class="portfolio-balance gradient-text">$12,459.82</h1>
+            <div class="portfolio-change"><i class="fa-solid fa-arrow-trend-up"></i> +$284.50 (2.34%)</div>
+        </div>
+        <div class="actions-bar">
+            <div class="action-btn c-buy" onclick="alert('Funcionalidad Comprar')"><i class="fa-solid fa-credit-card"></i><span>Comprar</span></div>
+            <div class="action-btn c-swap" onclick="activateTab(document.querySelectorAll('.tab-item')[2], 'tab-exchange')"><i class="fa-solid fa-retweet"></i><span>Swap</span></div>
+            <div class="action-btn c-sell" onclick="activateTab(document.querySelectorAll('.tab-item')[3], 'tab-futuros')"><i class="fa-solid fa-chart-line"></i><span>Futuros</span></div>
+        </div>
+        <div class="glass" style="height:220px; margin-top:20px; padding:10px; position:relative;">
+            <div style="position:absolute; top:15px; left:15px;">
+                <div style="color:var(--text-muted); font-weight:700;">Bitcoin BTC</div>
+                <div style="font-weight:800; font-size:1.5rem;">$63,284.50</div>
+            </div>
+            <canvas id="mini-chart"></canvas>
+        </div>
+    </div>
+
+    <!-- TAB: MERCADO -->
+    <div id="tab-mercado" class="tab-content">
+        <div class="market-header"><h3>Mercado P2P & Spot</h3><span style="color:var(--primary); font-weight:600;"><i class="fa-solid fa-magnifying-glass"></i></span></div>
+        <div class="coin-item"><div class="coin-info"><div class="coin-icon ic-btc"><i class="fa-brands fa-bitcoin"></i></div><div class="coin-name-group"><h4>BTC</h4><span>Bitcoin</span></div></div><div style="text-align:right"><div class="coin-price">$63,284.50</div><div class="coin-change" style="color:var(--success)">+2.34%</div></div></div>
+        <div class="coin-item"><div class="coin-info"><div class="coin-icon ic-eth"><i class="fa-brands fa-ethereum"></i></div><div class="coin-name-group"><h4>ETH</h4><span>Ethereum</span></div></div><div style="text-align:right"><div class="coin-price">$3,450.20</div><div class="coin-change" style="color:var(--success)">+1.85%</div></div></div>
+        <div class="coin-item"><div class="coin-info"><div class="coin-icon ic-bnb"><i class="fa-solid fa-diamond"></i></div><div class="coin-name-group"><h4>BNB</h4><span>Binance Coin</span></div></div><div style="text-align:right"><div class="coin-price">$590.30</div><div class="coin-change" style="color:var(--danger)">-0.40%</div></div></div>
+        <div class="coin-item"><div class="coin-info"><div class="coin-icon ic-sol" style="font-size:1rem;"><i class="fa-solid fa-bolt"></i></div><div class="coin-name-group"><h4>SOL</h4><span>Solana</span></div></div><div style="text-align:right"><div class="coin-price">$145.80</div><div class="coin-change" style="color:var(--success)">+5.60%</div></div></div>
+    </div>
+
+    <!-- TAB: EXCHANGE -->
+    <div id="tab-exchange" class="tab-content">
+        <h2 style="margin-bottom:20px;">Swap / Exchange</h2>
+        <div class="trade-card glass">
+            <div class="trade-label"><span>Vendes</span><span>Disponible: 0.85 BTC</span></div>
+            <div style="position:relative;">
+                <input type="number" class="input-trade" value="0.15">
+                <span style="position:absolute; left:20px; top:35px; color:white; font-weight:bold; font-size:1.2rem;">BTC <i class="fa-solid fa-chevron-down" style="font-size:0.8rem; margin-left:5px;"></i></span>
+            </div>
+            
+            <div class="swap-icon"><i class="fa-solid fa-arrow-down-up-across-line"></i></div>
+            
+            <div class="trade-label"><span>Recibes</span><span>Balance: $0.00 USD</span></div>
+            <div style="position:relative;">
+                <input type="number" class="input-trade" value="9492.67" readonly style="color:var(--success);">
+                <span style="position:absolute; left:20px; top:35px; color:white; font-weight:bold; font-size:1.2rem;">USD <i class="fa-solid fa-chevron-down" style="font-size:0.8rem; margin-left:5px;"></i></span>
+            </div>
+
+            <button class="btn btn-primary" style="margin-top:25px;" onclick="alert('Intercambio exitoso!')">Confirmar Swap</button>
+        </div>
+    </div>
+
+    <!-- TAB: FUTUROS -->
+    <div id="tab-futuros" class="tab-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h2>BTC/USD Perpetuo</h2>
+            <span style="background:rgba(168,85,247,0.2); color:var(--primary); padding:5px 10px; border-radius:8px; font-weight:bold;">Aislado 20x</span>
+        </div>
+        
+        <div class="trade-card glass" style="padding:20px;">
+            <p style="text-align:left; margin-bottom:5px; color:var(--text-muted); font-weight:bold;">Apalancamiento: <span id="lev-val" style="color:white;">20x</span></p>
+            <input type="range" class="slider" min="1" max="125" value="20" oninput="document.getElementById('lev-val').innerText=this.value+'x'">
+            
+            <div style="display:flex; justify-content:space-between; margin-top:15px;">
+                <span style="color:var(--text-muted);">Monto (USD)</span>
+                <input type="number" value="1000" style="background:transparent; border:none; text-align:right; font-size:1.2rem; color:white; font-weight:bold; width:100px; outline:none; border-bottom:1px solid var(--glass-border);">
+            </div>
+            
+            <div class="btn-grid">
+                <button class="btn btn-long" onclick="alert('Posición Long Abierta')">Comprar / Long</button>
+                <button class="btn btn-short" onclick="alert('Posición Short Abierta')">Vender / Short</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: PORTAFOLIO (BILLETERA) -->
+    <div id="tab-portafolio" class="tab-content">
+        <h2>Mi Billetera</h2>
+        <div style="text-align:center; padding:30px 0;">
+            <div style="position:relative; width:180px; height:180px; margin:0 auto; border-radius:50%; background: conic-gradient(var(--primary) 0% 60%, var(--accent) 60% 85%, var(--success) 85% 100%); display:flex; align-items:center; justify-content:center; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+                <div style="background:var(--bg-mid); width:130px; height:130px; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                    <span style="color:var(--text-muted); font-size:0.8rem;">TOTAL</span>
+                    <span style="font-weight:bold; font-size:1.2rem;">$12.4K</span>
+                </div>
+            </div>
+        </div>
+        <div class="glass" style="padding:15px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:10px;">
+                <div style="display:flex; align-items:center; gap:10px;"><div style="width:12px; height:12px; background:var(--primary); border-radius:50%;"></div> Bitcoin</div>
+                <div style="font-weight:bold;">$7,475 <span style="color:var(--text-muted); font-size:0.8rem; margin-left:5px;">60%</span></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:10px;">
+                <div style="display:flex; align-items:center; gap:10px;"><div style="width:12px; height:12px; background:var(--accent); border-radius:50%;"></div> Ethereum</div>
+                <div style="font-weight:bold;">$3,115 <span style="color:var(--text-muted); font-size:0.8rem; margin-left:5px;">25%</span></div>
+            </div>
+            <div style="display:flex; justify-content:space-between;">
+                <div style="display:flex; align-items:center; gap:10px;"><div style="width:12px; height:12px; background:var(--success); border-radius:50%;"></div> USDT / Cash</div>
+                <div style="font-weight:bold;">$1,869 <span style="color:var(--text-muted); font-size:0.8rem; margin-left:5px;">15%</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM TAB BAR -->
+    <div class="tab-bar">
+        <div class="tab-item active" onclick="activateTab(this, 'tab-trading')">
+            <i class="fa-solid fa-house"></i><span>Inicio</span>
+        </div>
+        <div class="tab-item" onclick="activateTab(this, 'tab-mercado')">
+            <i class="fa-solid fa-chart-simple"></i><span>Mercados</span>
+        </div>
+        <div class="tab-item" onclick="activateTab(this, 'tab-exchange')">
+            <div class="tab-center"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
+        </div>
+        <div class="tab-item" onclick="activateTab(this, 'tab-futuros')">
+            <i class="fa-solid fa-bolt"></i><span>Futuros</span>
+        </div>
+        <div class="tab-item" onclick="activateTab(this, 'tab-portafolio')">
+            <i class="fa-solid fa-wallet"></i><span>Billetera</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+        window.scrollTo(0, 0);
+        if(screenId === 'main-app' && !window.chartInit) { initChart(); }
+    }
+
+    function activateTab(tabElement, contentId) {
+        document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+        tabElement.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.getElementById(contentId).classList.add('active');
+        window.scrollTo(0,0);
+    }
+
+    function sendVerificationCode() {
+        const btn = event.currentTarget;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        setTimeout(() => {
+            btn.innerHTML = 'Código Enviado';
+            document.getElementById('verification-step').style.display = 'block';
+        }, 1000);
+    }
+
+    function registerUser() {
+        showScreen('main-app');
+        document.getElementById('verification-step').style.display = 'none';
+    }
+
+    function login() {
+        const btn = event.currentTarget;
+        const ori = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        setTimeout(() => { showScreen('main-app'); btn.innerHTML = ori; }, 800);
+    }
+
+    function logout() { if(confirm("¿Cerrar sesión?")) showScreen('login-screen'); }
+    function updateAvatar(e) {
+        if(e.target.files[0]) {
+            const rd = new FileReader();
+            rd.onload = (e) => document.querySelectorAll('.profile-pic').forEach(i => i.src = e.target.result);
+            rd.readAsDataURL(e.target.files[0]);
+        }
+    }
+
+    function initChart() {
+        window.chartInit = true;
+        const ctx = document.getElementById('mini-chart').getContext('2d');
+        const gradient = ctx.createLinearGradient(0,0,0,220);
+        gradient.addColorStop(0, 'rgba(168, 85, 247, 0.4)');
+        gradient.addColorStop(1, 'rgba(168, 85, 247, 0.0)');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [1,2,3,4,5,6],
+                datasets: [{ data: [61000, 62500, 61800, 63100, 62900, 63284], borderColor: '#a855f7', backgroundColor: gradient, fill: true, tension: 0.4, borderWidth: 3 }]
+            },
+            options: { plugins: {legend:{display:false}}, scales: {x:{display:false}, y:{display:false, min:60000}}, maintainAspectRatio:false }
+        });
+    }
+</script>
+</body>
+</html>

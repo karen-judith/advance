@@ -12,8 +12,12 @@ const pool = new Pool({
 });
 
 app.get('/api/precios', async (req, res) => {
-  const result = await pool.query('SELECT * FROM monedas');
-  res.json(result.rows);
+  try {
+    const result = await pool.query('SELECT * FROM monedas');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.listen(5000, () => {

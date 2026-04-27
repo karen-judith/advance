@@ -102,7 +102,7 @@
 <input type="file" id="avatar-upload" accept="image/*" style="display:none;" onchange="updateAvatar(event)">
 
 <!-- LogIn -->
-<div id="login-screen" class="screen auth-container active">
+<div id="login-screen" class="screen auth-container">
     <div class="auth-card glass">
         <div class="logo auth-logo gradient-text" style="margin-bottom:20px;"><i class="fa-solid fa-layer-group"></i> ADVANCE</div>
         <h2 style="margin-bottom:25px; font-weight:800;">Iniciar Sesión</h2>
@@ -114,7 +114,7 @@
 </div>
 
 <!-- Register -->
-<div id="register-screen" class="screen auth-container">
+<div id="register-screen" class="screen auth-container active">
     <div class="auth-card glass">
         <h2 style="margin-bottom:25px; font-weight:800;">Crear Cuenta</h2>
         <div class="input-group"><i class="fa-solid fa-user"></i><input type="text" id="reg-name" placeholder="Nombre completo"></div>
@@ -126,7 +126,7 @@
             <div class="input-group"><i class="fa-solid fa-shield"></i><input type="text" id="reg-code" placeholder="Código"></div>
             <button class="btn btn-primary" style="background:#10b981;" onclick="registerUser()">Verificar y Crear</button>
         </div>
-        <button class="btn btn-secondary" onclick="showScreen('login-screen')">Volver</button>
+        <button class="btn btn-secondary" onclick="showScreen('login-screen')" style="margin-top:15px;">Ya tengo cuenta (Entrar)</button>
     </div>
 </div>
 

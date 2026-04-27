@@ -1,4 +1,4 @@
-const CACHE_NAME = 'advance-trading-v2';
+const CACHE_NAME = 'advance-trading-v3';
 const urlsToCache = [
   './index.html',
   './manifest.json',

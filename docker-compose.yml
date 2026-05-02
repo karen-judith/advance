@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   frontend:
     build: ./frontend
@@ -14,6 +12,11 @@ services:
       - "5000:5000"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/advance
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=465
+      - SMTP_SECURE=true
+      - SMTP_USER=karenramiresjudith@gmail.com
+      - SMTP_PASS=zxmeytebkfwlwywx
     depends_on:
       - db
 

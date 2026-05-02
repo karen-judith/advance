@@ -3,99 +3,660 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Advance • Trading Mobile App</title>
+    <title>Advance • Trading</title>
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#090614">
     <link rel="apple-touch-icon" href="./icon.svg">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
-            --primary: #a855f7; --secondary: #ec4899; --accent: #22d3ee;
-            --success: #10b981; --danger: #ef4444; 
-            --bg-dark: #090614; --bg-mid: #16102b;
-            --text-main: #f8fafc; --text-muted: #94a3b8;
-            --glass-bg: rgba(34, 24, 66, 0.4); --glass-border: rgba(168, 85, 247, 0.2);
+            --primary: #a855f7;
+            --primary-light: #c084fc;
+            --secondary: #ec4899;
+            --accent: #22d3ee;
+            --success: #10b981;
+            --danger: #ef4444;
+            --bg-dark: #090614;
+            --bg-mid: #16102b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --card-bg: rgba(22, 16, 43, 0.55);
+            --card-border: rgba(168, 85, 247, 0.2);
             --bottom-nav-height: 75px;
+            --mono: 'JetBrains Mono', monospace;
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        body { background: linear-gradient(135deg, var(--bg-dark), var(--bg-mid)); background-attachment: fixed; color: var(--text-main); min-height: 100vh; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
-        
-        .glass { background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--glass-border); border-radius: 20px; }
-        .gradient-text { background: linear-gradient(to right, var(--accent), var(--primary), var(--secondary)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-        
-        .screen { display: none; width: 100%; min-height: 100vh; animation: fadeIn 0.4s ease; padding-bottom: calc(var(--bottom-nav-height) + 15px); }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--bg-dark); color: var(--text-main); min-height: 100vh; overflow-x: hidden; }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(168, 85, 247, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(168, 85, 247, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse at 30% 0%, rgba(168, 85, 247, 0.1) 0%, transparent 60%),
+                radial-gradient(ellipse at 70% 100%, rgba(236, 72, 153, 0.06) 0%, transparent 60%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .screen { display: none; width: 100%; min-height: 100vh; animation: fadeUp 0.35s ease; padding-bottom: calc(var(--bottom-nav-height) + 15px); position: relative; z-index: 1; }
         .screen.active { display: block; }
-        .tab-content { display: none; padding: 20px 20px 0; animation: fadeIn 0.3s ease; }
+        .tab-content { display: none; padding: 18px 16px 0; animation: fadeUp 0.3s ease; }
         .tab-content.active { display: block; }
 
-        .header { background: rgba(9, 6, 20, 0.85); backdrop-filter: blur(10px); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); position: sticky; top: 0; z-index: 50; }
-        .logo { font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
-        .user-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--primary); object-fit: cover; cursor: pointer; transition: 0.3s; }
-        
-        /* Auth */
-        .auth-container { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
-        .auth-container.active { display: flex; }
-        .auth-card { width: 100%; max-width: 400px; padding: 35px 25px; text-align: center; }
-        .input-group { position: relative; margin-bottom: 18px; }
-        .input-group i { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
-        .auth-card input { width: 100%; padding: 16px 16px 16px 45px; background: rgba(0,0,0,0.3); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 12px; color: white; font-size: 1rem; transition: 0.3s; }
-        .auth-card input:focus { border-color: var(--primary); outline: none; box-shadow: inset 0 0 10px rgba(168,85,247,0.2); }
-        .btn { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: 700; font-size: 1rem; cursor: pointer; margin-top: 10px; display:flex; align-items:center; justify-content:center; gap: 10px; transition: 0.3s; }
-        .btn-primary { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; }
-        .btn-primary:active { transform: scale(0.97); }
-        .btn-secondary { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
 
-        /* UI Elements */
-        .portfolio-label { color: var(--text-muted); font-size: 0.9rem; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; }
-        .portfolio-balance { font-size: 2.8rem; font-weight: 800; margin: 0; line-height: 1.1; }
-        .portfolio-change { display: inline-flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.15); color: var(--success); padding: 6px 12px; border-radius: 100px; font-weight: 600; font-size: 0.9rem; margin-top: 12px; border: 1px solid rgba(16, 185, 129, 0.2); }
-        
-        /* Actions Bar */
-        .actions-bar { display: flex; gap: 12px; margin-top: 25px; }
-        .action-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--glass-bg); border: 1px solid var(--glass-border); padding: 16px 5px; border-radius: 18px; color: var(--text-main); font-weight: 600; cursor: pointer; transition: 0.2s; }
-        .action-btn i { font-size: 1.4rem; margin-bottom: 8px; }
+        .header {
+            background: rgba(9, 6, 20, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            padding: 14px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--card-border);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+        .logo { font-size: 22px; font-weight: 900; display: flex; align-items: center; gap: 8px; }
+        .neon-glow { text-shadow: 0 0 12px rgba(168,85,247,0.3), 0 0 30px rgba(168,85,247,0.1); }
+        .gradient-text {
+            background: linear-gradient(135deg, var(--accent), var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            background-size: 200% 200%;
+            animation: gradientShift 4s ease infinite;
+        }
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .user-avatar {
+            width: 38px; height: 38px; border-radius: 50%; cursor: pointer;
+            border: 2px solid var(--primary);
+            object-fit: cover;
+            transition: box-shadow 0.3s;
+        }
+        .user-avatar:hover { box-shadow: 0 0 12px rgba(168, 85, 247, 0.5); }
+
+        /* Auth - Liquid Glass */
+        .auth-container { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; z-index: 1; }
+        .auth-container.active { display: flex; }
+        .auth-card {
+            width: 100%; max-width: 420px; padding: 44px 30px; text-align: center;
+            background: rgba(168, 85, 247, 0.06);
+            backdrop-filter: blur(40px) saturate(1.5);
+            -webkit-backdrop-filter: blur(40px) saturate(1.5);
+            border-radius: 28px;
+            border: 0.5px solid rgba(255, 255, 255, 0.18);
+            position: relative; overflow: hidden;
+            box-shadow:
+                0 8px 32px rgba(0, 0, 0, 0.3),
+                0 2px 8px rgba(0, 0, 0, 0.15),
+                inset 0 1px 0 rgba(255, 255, 255, 0.12),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+        }
+        .auth-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 55%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+            pointer-events: none;
+            border-radius: 28px 28px 0 0;
+        }
+        .auth-card::after {
+            content: '';
+            position: absolute; bottom: 0; left: 5%; right: 5%; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+        }
+        .auth-card .scanline {
+            position: absolute; inset: 0;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(168,85,247,0.02) 2px, rgba(168,85,247,0.02) 4px);
+            pointer-events: none;
+        }
+
+        .input-group { position: relative; margin-bottom: 16px; }
+        .input-group i {
+            position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+            color: rgba(248,250,252,0.4); font-size: 0.9rem; transition: color 0.3s; pointer-events: none;
+        }
+        .input-group input {
+            width: 100%; padding: 16px 16px 16px 44px;
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 0.5px solid rgba(255, 255, 255, 0.12);
+            border-radius: 14px; color: white; font-size: 0.95rem;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        .input-group input::placeholder { color: rgba(248,250,252,0.35); }
+        .input-group input:focus {
+            border-color: rgba(168, 85, 247, 0.5); outline: none;
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.08), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        .input-group input:focus ~ i { color: var(--primary); }
+
+        .btn {
+            width: 100%; padding: 16px; border-radius: 16px;
+            font-weight: 700; font-size: 0.95rem; cursor: pointer; margin-top: 12px;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            position: relative; overflow: hidden;
+        }
+        .btn::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 55%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 100%);
+            border-radius: 16px 16px 0 0; pointer-events: none;
+        }
+        .btn-primary {
+            background: rgba(168, 85, 247, 0.5);
+            backdrop-filter: blur(20px) saturate(1.5);
+            -webkit-backdrop-filter: blur(20px) saturate(1.5);
+            color: white;
+            border: 0.5px solid rgba(255, 255, 255, 0.2);
+            box-shadow:
+                0 4px 16px rgba(168, 85, 247, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.15),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary:hover {
+            background: rgba(168, 85, 247, 0.6);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow:
+                0 6px 24px rgba(168, 85, 247, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary:active { transform: scale(0.97); }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 0.5px solid rgba(255, 255, 255, 0.1);
+            color: rgba(248, 250, 252, 0.85);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 4px 16px rgba(0,0,0,0.15);
+        }
+
+        /* Portfolio */
+        .portfolio-label { color: var(--text-muted); font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px; }
+        .portfolio-balance { font-family: var(--mono); font-size: 2.2rem; font-weight: 700; margin: 0; line-height: 1.1; }
+        .portfolio-change {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: rgba(16,185,129,0.12); color: var(--success);
+            padding: 6px 12px; border-radius: 100px; font-weight: 600; font-size: 0.82rem; margin-top: 12px;
+            border: 1px solid rgba(16,185,129,0.15);
+        }
+
+        /* Actions */
+        .actions-bar { display: flex; gap: 12px; margin-top: 20px; }
+        .action-btn {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 16px 6px; border-radius: 16px; color: var(--text-main);
+            font-weight: 600; cursor: pointer; gap: 6px;
+            background: rgba(34,24,66,0.35);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(168,85,247,0.15);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.06);
+            transition: all 0.25s;
+            position: relative; overflow: hidden;
+        }
+        .action-btn::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 50%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 100%);
+            pointer-events: none; border-radius: 16px 16px 0 0;
+        }
+        .action-btn i { font-size: 1.2rem; position: relative; z-index: 1; }
+        .action-btn span { position: relative; z-index: 1; }
+        .action-btn:active { transform: scale(0.95); }
+        .action-btn:hover { border-color: rgba(168,85,247,0.3); box-shadow: 0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1); }
         .c-buy i { color: var(--success); } .c-sell i { color: var(--danger); } .c-swap i { color: var(--accent); }
 
-        /* Market List & Coins */
-        .market-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
-        .coin-item { display: flex; justify-content: space-between; align-items: center; padding: 16px; background: rgba(255,255,255,0.02); border-radius: 18px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.04); }
-        .coin-info { display: flex; align-items: center; gap: 14px; }
-        .coin-icon { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: white; }
-        .coin-name-group h4 { font-size: 1.1rem; font-weight: 700; margin: 0; }
-        .coin-name-group span { font-size: 0.85rem; color: var(--text-muted); font-weight: 500;}
-        .coin-price { font-size: 1.1rem; font-weight: 700; text-align: right; margin: 0; }
-        .coin-change { font-size: 0.85rem; font-weight: 700; padding: 4px 8px; border-radius: 6px; display: inline-block; margin-top: 5px; }
+        /* Chart - SMALL */
+        .chart-card {
+            margin-top: 18px; padding: 14px;
+            background: rgba(34,24,66,0.3);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(168,85,247,0.15);
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
+            position: relative; overflow: hidden;
+        }
+        .chart-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 50%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 100%);
+            pointer-events: none; border-radius: 16px 16px 0 0;
+        }
+        .chart-top { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px; }
+        .chart-top .label { color: var(--text-muted); font-size: 0.78rem; font-weight: 600; }
+        .chart-top .price { font-family: var(--mono); font-weight: 700; font-size: 1.1rem; }
+        #mini-chart { height: 100px !important; width: 100%; }
 
-        /* Custom Inputs (Exchange & Futuros) */
-        .trade-card { padding: 25px; text-align: center; margin-bottom: 20px; }
-        .input-trade { width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); padding: 20px; border-radius: 16px; color: white; font-size: 1.5rem; font-weight: 700; text-align: right; outline: none; margin-top: 10px; }
-        .input-trade:focus { border-color: var(--primary); }
-        .trade-label { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 0.9rem; font-weight: 600; }
-        .swap-icon { font-size: 1.5rem; color: var(--primary); margin: 15px 0; background: rgba(0,0,0,0.3); width: 45px; height: 45px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--glass-border); cursor:pointer; }
-        .slider { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 5px; outline: none; margin: 25px 0; }
-        .slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(--primary); cursor: pointer; border: 2px solid white; }
+        /* Market */
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .section-title { font-size: 1.15rem; font-weight: 800; }
+        .coin-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px; margin-bottom: 10px;
+            background: rgba(34,24,66,0.3);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(168,85,247,0.15);
+            border-radius: 14px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04);
+            transition: border-color 0.3s, box-shadow 0.3s;
+            position: relative; overflow: hidden;
+        }
+        .coin-item::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 50%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 100%);
+            pointer-events: none; border-radius: 14px 14px 0 0;
+        }
+        .coin-item:hover { border-color: rgba(168,85,247,0.35); box-shadow: 0 4px 18px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08); }
+        .coin-info { display: flex; align-items: center; gap: 12px; }
+        .coin-icon {
+            width: 40px; height: 40px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; color: white;
+        }
+        .coin-name-group h4 { font-size: 0.95rem; font-weight: 700; margin: 0; }
+        .coin-name-group span { font-size: 0.78rem; color: var(--text-muted); }
+        .coin-price { font-family: var(--mono); font-size: 0.95rem; font-weight: 700; text-align: right; }
 
-        /* Buttons Grid for Futuros */
-        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
-        .btn-long { background: linear-gradient(135deg, var(--success), #059669); color: white; }
-        .btn-short { background: linear-gradient(135deg, var(--danger), #b91c1c); color: white; }
+        /* Trade cards */
+        .trade-card {
+            padding: 20px; text-align: center; margin-bottom: 18px;
+            background: rgba(34,24,66,0.3);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(168,85,247,0.15);
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
+            position: relative; overflow: hidden;
+        }
+        .trade-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 50%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 100%);
+            pointer-events: none; border-radius: 16px 16px 0 0;
+        }
+        .input-trade {
+            width: 100%;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.06);
+            padding: 18px; border-radius: 14px; color: white;
+            font-family: var(--mono); font-size: 1.3rem; font-weight: 600;
+            text-align: right; outline: none; margin-top: 8px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .input-trade:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(168,85,247,0.1), inset 0 1px 0 rgba(255,255,255,0.08);
+        }
+        .trade-label { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 0.82rem; font-weight: 600; }
+        .swap-icon {
+            font-size: 1.3rem; color: var(--primary); margin: 12px 0;
+            background: rgba(34,24,66,0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            width: 42px; height: 42px;
+            display: inline-flex; align-items: center; justify-content: center;
+            border-radius: 50%; border: 1px solid rgba(168,85,247,0.2); cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.06);
+            transition: transform 0.3s, background 0.3s, border-color 0.3s;
+        }
+        .swap-icon:hover { background: rgba(168,85,247,0.15); border-color: rgba(168,85,247,0.4); transform: rotate(180deg); }
+        .slider {
+            -webkit-appearance: none; appearance: none; width: 100%; height: 5px;
+            background: rgba(255,255,255,0.08); border-radius: 5px; outline: none; margin: 20px 0;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; width: 22px; height: 22px;
+            border-radius: 50%; background: var(--primary); cursor: pointer;
+            border: 3px solid white; box-shadow: 0 2px 8px rgba(168,85,247,0.4);
+        }
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+        .btn-long {
+            background: linear-gradient(135deg, rgba(16,185,129,0.7), rgba(5,150,105,0.7));
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            color: white; border: 1px solid rgba(255,255,255,0.12);
+            box-shadow: 0 4px 18px rgba(16,185,129,0.2), inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+        .btn-long:hover { background: linear-gradient(135deg, rgba(16,185,129,0.85), rgba(5,150,105,0.85)); box-shadow: 0 6px 28px rgba(16,185,129,0.35), inset 0 1px 0 rgba(255,255,255,0.2); }
+        .btn-short {
+            background: linear-gradient(135deg, rgba(239,68,68,0.7), rgba(185,28,28,0.7));
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            color: white; border: 1px solid rgba(255,255,255,0.12);
+            box-shadow: 0 4px 18px rgba(239,68,68,0.2), inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+        .btn-short:hover { background: linear-gradient(135deg, rgba(239,68,68,0.85), rgba(185,28,28,0.85)); box-shadow: 0 6px 28px rgba(239,68,68,0.35), inset 0 1px 0 rgba(255,255,255,0.2); }
 
-        /* Bottom Tab Bar */
-        .tab-bar { position: fixed; bottom: 0; left: 0; width: 100%; height: var(--bottom-nav-height); background: rgba(9, 6, 20, 0.95); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); display: flex; justify-content: space-around; align-items: center; border-top: 1px solid var(--glass-border); z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
-        .tab-item { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--text-muted); cursor: pointer; transition: 0.3s; flex: 1; padding: 10px 0; }
-        .tab-item i { font-size: 1.4rem; }
-        .tab-item span { font-size: 0.75rem; font-weight: 600; }
+        /* Portfolio */
+        .donut-wrap { text-align: center; padding: 22px 0; }
+        .donut-ring {
+            position: relative; width: 150px; height: 150px; margin: 0 auto; border-radius: 50%;
+            background: conic-gradient(var(--primary) 0% 60%, var(--accent) 60% 85%, var(--success) 85% 100%);
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 25px rgba(168,85,247,0.15), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        .donut-inner {
+            background: var(--bg-mid); width: 110px; height: 110px; border-radius: 50%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .wallet-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .wallet-item:last-child { border-bottom: none; }
+        .pulse-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; animation: pulse 2s infinite; }
+        .pulse-dot.green { background: var(--success); }
+        .pulse-dot.purple { background: var(--primary); }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        /* Chatbot - AdvanceBot */
+        .chat-fab {
+            position: fixed; bottom: calc(var(--bottom-nav-height) + 18px); right: 18px; z-index: 90;
+            width: 56px; height: 56px; border-radius: 50%;
+            background: rgba(168,85,247,0.5);
+            backdrop-filter: blur(20px) saturate(1.5);
+            -webkit-backdrop-filter: blur(20px) saturate(1.5);
+            border: 0.5px solid rgba(255,255,255,0.18);
+            box-shadow: 0 4px 20px rgba(168,85,247,0.3), inset 0 1px 0 rgba(255,255,255,0.12);
+            display: none; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.3s;
+            animation: chatPulse 3s ease-in-out infinite;
+        }
+        .chat-fab.visible { display: flex; }
+        .chat-fab:active { transform: scale(0.9); }
+        .chat-fab i { font-size: 1.4rem; color: white; }
+        @keyframes chatPulse {
+            0%, 100% { box-shadow: 0 4px 20px rgba(168,85,247,0.3), inset 0 1px 0 rgba(255,255,255,0.12); }
+            50% { box-shadow: 0 4px 35px rgba(168,85,247,0.55), inset 0 1px 0 rgba(255,255,255,0.12); }
+        }
+
+        .chat-panel {
+            position: fixed; bottom: calc(var(--bottom-nav-height) + 82px); right: 18px; z-index: 90;
+            width: 340px; max-height: 500px;
+            background: rgba(22, 16, 43, 0.45);
+            backdrop-filter: blur(40px) saturate(1.5);
+            -webkit-backdrop-filter: blur(40px) saturate(1.5);
+            border: 0.5px solid rgba(255,255,255,0.14);
+            border-radius: 24px;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+            display: none; flex-direction: column; overflow: hidden;
+            animation: chatSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            touch-action: none;
+        }
+        .chat-panel.open { display: flex; }
+        .chat-panel.dragging { transition: none; }
+        .chat-panel:not(.dragging) { transition: box-shadow 0.3s; }
+        .chat-panel:not(.dragging):hover { box-shadow: 0 16px 56px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1); }
+        @keyframes chatSlideIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Character face */
+        .chat-header {
+            padding: 14px 16px;
+            background: rgba(34,24,66,0.3);
+            border-bottom: 0.5px solid rgba(255,255,255,0.06);
+            display: flex; align-items: center; gap: 12px;
+            position: relative; cursor: move;
+        }
+        .chat-header::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 55%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 100%);
+            pointer-events: none;
+        }
+
+        .bot-face {
+            width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            position: relative; overflow: hidden;
+            box-shadow: 0 2px 12px rgba(168,85,247,0.35);
+        }
+        .bot-face::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 55%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, transparent 100%);
+            border-radius: 50% 50% 0 0;
+        }
+        .bot-eyes {
+            position: absolute; top: 35%; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 8px;
+        }
+        .bot-eye {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: white;
+            animation: blink 4s ease-in-out infinite;
+        }
+        .bot-eye:nth-child(2) { animation-delay: 0.1s; }
+        @keyframes blink {
+            0%, 42%, 44%, 96%, 100% { transform: scaleY(1); }
+            43%, 100% { transform: scaleY(0.1); }
+        }
+
+        .bot-face.thinking .bot-eye {
+            animation: lookAround 1.5s ease-in-out infinite;
+            height: 5px; width: 5px;
+        }
+        @keyframes lookAround {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-2px); }
+            75% { transform: translateX(2px); }
+        }
+        .bot-face.thinking::after {
+            content: ''; position: absolute;
+            bottom: 22%; left: 50%; transform: translateX(-50%);
+            width: 10px; height: 4px; border-radius: 10px;
+            background: rgba(255,255,255,0.7);
+        }
+
+        .bot-face.talking .bot-eye { animation: none; height: 7px; width: 7px; }
+        .bot-face.talking::after {
+            content: ''; position: absolute;
+            bottom: 20%; left: 50%; transform: translateX(-50%);
+            width: 10px; height: 8px; border-radius: 0 0 10px 10px;
+            background: rgba(255,255,255,0.85);
+            animation: mouthTalk 0.4s ease-in-out infinite;
+        }
+        @keyframes mouthTalk {
+            0%, 100% { height: 6px; width: 10px; }
+            50% { height: 10px; width: 8px; border-radius: 50%; }
+        }
+
+        .bot-face.happy .bot-eye { animation: none; height: 4px; border-radius: 4px 4px 0 0; background: white; }
+        .bot-face.happy::after {
+            content: ''; position: absolute;
+            bottom: 22%; left: 50%; transform: translateX(-50%);
+            width: 12px; height: 6px; border-radius: 0 0 12px 12px;
+            background: rgba(255,255,255,0.85);
+        }
+
+        .bot-face.sad .bot-eye { animation: none; height: 7px; }
+        .bot-face.sad::after {
+            content: ''; position: absolute;
+            bottom: 22%; left: 50%; transform: translateX(-50%);
+            width: 10px; height: 6px; border-radius: 10px 10px 0 0;
+            background: rgba(255,255,255,0.7);
+        }
+
+        .chat-header-info { flex: 1; position: relative; z-index: 1; }
+        .chat-header-info .name { font-size: 0.92rem; font-weight: 800; letter-spacing: 0.3px; }
+        .chat-header-info .status { font-size: 0.7rem; color: var(--success); display: flex; align-items: center; gap: 4px; }
+
+        .chat-close {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: rgba(255,255,255,0.06); border: none;
+            color: rgba(248,250,252,0.5); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.8rem; transition: all 0.2s; position: relative; z-index: 1;
+        }
+        .chat-close:hover { background: rgba(255,255,255,0.1); color: white; }
+
+        .chat-messages {
+            flex: 1; padding: 14px; overflow-y: auto; max-height: 320px;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .chat-messages::-webkit-scrollbar { width: 4px; }
+        .chat-messages::-webkit-scrollbar-track { background: transparent; }
+        .chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+        .chat-msg {
+            max-width: 85%; padding: 10px 14px; border-radius: 16px;
+            font-size: 0.82rem; line-height: 1.45;
+            animation: msgIn 0.3s ease;
+        }
+        @keyframes msgIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .chat-msg.bot {
+            background: rgba(168,85,247,0.12);
+            backdrop-filter: blur(10px);
+            border: 0.5px solid rgba(168,85,247,0.15);
+            border-bottom-left-radius: 4px;
+            color: rgba(248,250,252,0.9);
+            align-self: flex-start;
+        }
+        .chat-msg.user {
+            background: rgba(255,255,255,0.08);
+            border: 0.5px solid rgba(255,255,255,0.08);
+            border-bottom-right-radius: 4px;
+            color: rgba(248,250,252,0.85);
+            align-self: flex-end;
+        }
+
+        .typing-dots { display: flex; gap: 4px; padding: 8px 0; }
+        .typing-dots span {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--primary); animation: typingBounce 1.2s infinite;
+        }
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typingBounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-6px); opacity: 1; }
+        }
+
+        .chat-suggestions {
+            padding: 8px 14px; display: flex; gap: 6px; flex-wrap: wrap;
+            border-top: 0.5px solid rgba(255,255,255,0.04);
+        }
+        .chat-suggestion-btn {
+            padding: 6px 12px; border-radius: 100px;
+            background: rgba(255,255,255,0.05);
+            border: 0.5px solid rgba(255,255,255,0.08);
+            color: rgba(248,250,252,0.6); font-size: 0.72rem; font-weight: 600;
+            cursor: pointer; transition: all 0.2s; white-space: nowrap;
+        }
+        .chat-suggestion-btn:hover {
+            background: rgba(168,85,247,0.15); border-color: rgba(168,85,247,0.3);
+            color: rgba(248,250,252,0.9);
+        }
+
+        .chat-input-area {
+            padding: 10px 14px; display: flex; gap: 8px;
+            border-top: 0.5px solid rgba(255,255,255,0.06);
+            background: rgba(0,0,0,0.1);
+        }
+        .chat-input {
+            flex: 1; padding: 10px 14px; border-radius: 100px;
+            background: rgba(255,255,255,0.06);
+            border: 0.5px solid rgba(255,255,255,0.08);
+            color: white; font-size: 0.82rem; outline: none;
+            transition: border-color 0.3s;
+        }
+        .chat-input:focus { border-color: rgba(168,85,247,0.4); }
+        .chat-input::placeholder { color: rgba(248,250,252,0.25); }
+        .chat-send {
+            width: 36px; height: 36px; border-radius: 50%; border: none;
+            background: rgba(168,85,247,0.5); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 0.85rem; transition: all 0.2s; flex-shrink: 0;
+        }
+        .chat-send:active { transform: scale(0.9); }
+        .chat-send:hover { background: rgba(168,85,247,0.7); }
+
+        .glass-card {
+            background: rgba(34,24,66,0.3);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(168,85,247,0.15);
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
+            padding: 18px; position: relative; overflow: hidden;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .glass-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 50%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 100%);
+            pointer-events: none; border-radius: 16px 16px 0 0;
+        }
+        .glass-card:hover { border-color: rgba(168,85,247,0.35); }
+
+        /* Bottom Nav */
+        .tab-bar {
+            position: fixed; bottom: 0; left: 0; width: 100%; height: var(--bottom-nav-height);
+            background: rgba(9, 6, 20, 0.92); backdrop-filter: blur(16px);
+            display: flex; justify-content: space-around; align-items: center;
+            border-top: 1px solid var(--card-border); z-index: 100;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .tab-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-muted); cursor: pointer; transition: color 0.3s; flex: 1; padding: 10px 0; }
+        .tab-item i { font-size: 1.2rem; transition: transform 0.3s; }
+        .tab-item span { font-size: 0.68rem; font-weight: 600; }
         .tab-item.active { color: var(--primary); }
-        .tab-center { background: linear-gradient(135deg, var(--primary), var(--secondary)); width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-top: -25px; box-shadow: 0 8px 20px rgba(168, 85, 247, 0.4); color: white; border: 4px solid var(--bg-dark); }
-        
+        .tab-item.active i { transform: scale(1.1); }
+        .tab-center {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            width: 50px; height: 50px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; margin-top: -22px;
+            box-shadow: 0 6px 20px rgba(168,85,247,0.4); color: white;
+            border: 3px solid var(--bg-dark); transition: transform 0.3s;
+        }
+        .tab-center:active { transform: scale(0.95); }
+
         .ic-btc { background: linear-gradient(135deg, #f7931a, #f37107); }
         .ic-eth { background: linear-gradient(135deg, #627eea, #3b5ca9); }
         .ic-sol { background: linear-gradient(135deg, #00ffa3, #dc1fff); }
         .ic-bnb { background: linear-gradient(135deg, #f3ba2f, #dca11c); }
-        
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .neon-glow { text-shadow: 0 0 8px rgba(168,85,247,0.4), 0 0 20px rgba(168,85,247,0.15); }
     </style>
 </head>
 <body>
@@ -104,79 +665,103 @@
 
 <!-- LogIn -->
 <div id="login-screen" class="screen auth-container">
-    <div class="auth-card glass">
-        <div class="logo auth-logo gradient-text" style="margin-bottom:20px;"><i class="fa-solid fa-layer-group"></i> ADVANCE</div>
-        <h2 style="margin-bottom:25px; font-weight:800;">Iniciar Sesión</h2>
-        <div class="input-group"><i class="fa-solid fa-envelope"></i><input type="email" id="login-email" placeholder="Correo" value="demo@advance.com"></div>
-        <div class="input-group"><i class="fa-solid fa-lock"></i><input type="password" id="login-pass" placeholder="Clave" value="123456"></div>
-        <button class="btn btn-primary" onclick="login()">Entrar</button>
-        <button class="btn btn-secondary" onclick="showScreen('register-screen')">Registrarse</button>
+    <div class="auth-card">
+        <div class="logo gradient-text neon-glow" style="margin-bottom:24px; position:relative; font-size:28px;"><i class="fa-solid fa-layer-group"></i> ADVANCE</div>
+        <p style="color:rgba(248,250,252,0.45); margin-bottom:32px; font-size:0.9rem; position:relative;">Tu plataforma de trading cripto</p>
+        <div class="input-group"><input type="email" id="login-email" placeholder="Correo" value="demo@advance.com"><i class="fa-solid fa-envelope"></i></div>
+        <div class="input-group"><input type="password" id="login-pass" placeholder="Clave" value="123456"><i class="fa-solid fa-lock"></i></div>
+        <button class="btn btn-primary" onclick="login()"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</button>
+        <button class="btn btn-secondary" onclick="showScreen('register-screen')"><i class="fa-solid fa-user-plus"></i> Crear Cuenta</button>
     </div>
 </div>
 
 <!-- Register -->
 <div id="register-screen" class="screen auth-container active">
-    <div class="auth-card glass">
-        <h2 style="margin-bottom:25px; font-weight:800;">Crear Cuenta</h2>
-        <div class="input-group"><i class="fa-solid fa-user"></i><input type="text" id="reg-name" placeholder="Nombre completo"></div>
-        <div class="input-group"><i class="fa-solid fa-envelope"></i><input type="email" id="reg-email" placeholder="Correo electrónico"></div>
-        <div class="input-group"><i class="fa-solid fa-lock"></i><input type="password" id="reg-pass" placeholder="Contraseña"></div>
+    <div class="auth-card">
+        <div class="logo gradient-text neon-glow" style="margin-bottom:24px; position:relative; font-size:28px;"><i class="fa-solid fa-layer-group"></i> ADVANCE</div>
+        <p style="color:rgba(248,250,252,0.45); margin-bottom:32px; font-size:0.9rem; position:relative;">Crea tu cuenta para operar</p>
+        <div class="input-group"><input type="text" id="reg-name" placeholder="Nombre completo"><i class="fa-solid fa-user"></i></div>
+        <div class="input-group"><input type="email" id="reg-email" placeholder="Correo electrónico"><i class="fa-solid fa-envelope"></i></div>
+        <div class="input-group"><input type="password" id="reg-pass" placeholder="Contraseña"><i class="fa-solid fa-lock"></i></div>
         <button class="btn btn-primary" onclick="sendVerificationCode()"><i class="fa-solid fa-paper-plane"></i> Enviar Código</button>
-        
-        <div id="verification-step" style="display:none; margin-top:20px; border-top: 1px solid var(--glass-border); padding-top: 20px;">
-            <div class="input-group"><i class="fa-solid fa-shield"></i><input type="text" id="reg-code" placeholder="Código"></div>
-            <button class="btn btn-primary" style="background:#10b981;" onclick="registerUser()">Verificar y Crear</button>
+        <div id="verification-step" style="display:none; margin-top:20px; border-top:0.5px solid rgba(255,255,255,0.08); padding-top:20px;">
+            <div class="input-group"><input type="text" id="reg-code" placeholder="Código de verificación"><i class="fa-solid fa-shield-halved"></i></div>
+            <button class="btn btn-primary" style="background:rgba(16,185,129,0.4); border-color:rgba(255,255,255,0.15);" onclick="registerUser()"><i class="fa-solid fa-check"></i> Verificar y Crear</button>
         </div>
-        <button class="btn btn-secondary" onclick="showScreen('login-screen')" style="margin-top:15px;">Ya tengo cuenta (Entrar)</button>
+        <button class="btn btn-secondary" style="margin-top:12px;" onclick="showScreen('login-screen')"><i class="fa-solid fa-arrow-left"></i> Ya tengo cuenta</button>
     </div>
 </div>
 
 <!-- Settings -->
 <div id="settings-screen" class="screen">
     <header class="header">
-        <div style="display:flex; align-items:center; gap:15px;">
-            <i class="fa-solid fa-arrow-left" style="font-size:1.3rem; cursor:pointer;" onclick="showScreen('main-app')"></i>
-            <h2 style="font-size:1.3rem; margin:0;">Configuración</h2>
+        <div style="display:flex; align-items:center; gap:14px;">
+            <i class="fa-solid fa-arrow-left" style="font-size:1.1rem; cursor:pointer;" onclick="showScreen('main-app')"></i>
+            <h2 style="font-size:1.15rem; margin:0; font-weight:700;">Configuración</h2>
         </div>
     </header>
-    <div style="padding: 20px;">
-        <div class="glass" style="padding: 20px; display:flex; align-items:center; gap:18px; margin-bottom:30px; cursor:pointer;" onclick="document.getElementById('avatar-upload').click()">
-            <img src="https://i.pravatar.cc/150?img=68" class="user-avatar profile-pic" style="width:70px; height:70px;">
-            <div><h3 style="font-size:1.3rem;">Usuario Demo</h3><span style="color:var(--text-muted); font-size:0.95rem;">demo@advance.com</span></div>
+    <div style="padding:18px;">
+        <div class="glass-card" onclick="document.getElementById('avatar-upload').click()">
+            <img src="https://i.pravatar.cc/150?img=68" class="user-avatar profile-pic" style="width:60px; height:60px;">
+            <div><h3 id="settings-user-name" style="font-size:1.1rem; font-weight:700;">Usuario</h3><span id="settings-user-email" style="color:var(--text-muted); font-size:0.85rem;"></span></div>
         </div>
-        <button class="btn btn-secondary" style="border-color:var(--danger); color:var(--danger);" onclick="logout()">Cerrar Sesión</button>
+        <button class="btn btn-secondary" style="border-color:var(--danger); color:var(--danger);" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión</button>
     </div>
 </div>
 
-<!-- Main App Container -->
+<!-- Chatbot -->
+<div class="chat-fab" id="chat-fab" onclick="toggleChat()">
+    <i class="fa-solid fa-robot"></i>
+</div>
+<div class="chat-panel" id="chat-panel">
+    <div class="chat-header" id="chat-header">
+        <div class="bot-face" id="bot-face">
+            <div class="bot-eyes">
+                <div class="bot-eye"></div>
+                <div class="bot-eye"></div>
+            </div>
+        </div>
+        <div class="chat-header-info">
+            <div class="name">AdvanceBot</div>
+            <div class="status"><div class="pulse-dot green" style="width:6px;height:6px;"></div> En línea</div>
+        </div>
+        <button class="chat-close" onclick="toggleChat()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-suggestions" id="chat-suggestions"></div>
+    <div class="chat-input-area">
+        <input class="chat-input" id="chat-input" placeholder="Pregúntame algo..." onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="chat-send" onclick="sendChat()"><i class="fa-solid fa-paper-plane"></i></button>
+    </div>
+</div>
+
+<!-- Main App -->
 <div id="main-app" class="screen">
-    <!-- Header -->
     <header class="header">
         <div class="logo gradient-text">ADVANCE</div>
-        <div style="display:flex; gap:20px; align-items:center;">
-            <i class="fa-solid fa-gear" style="font-size:1.3rem; color:var(--text-muted); cursor:pointer;" onclick="showScreen('settings-screen')"></i>
+        <div style="display:flex; gap:16px; align-items:center;">
+            <i class="fa-solid fa-gear" style="font-size:1.1rem; color:var(--text-muted); cursor:pointer;" onclick="showScreen('settings-screen')"></i>
             <img src="https://i.pravatar.cc/150?img=68" class="user-avatar profile-pic" onclick="document.getElementById('avatar-upload').click()">
         </div>
     </header>
 
-    <!-- TABS CONTENT -->
-
-    <!-- TAB: TRADING (Inicio) -->
+    <!-- TAB: TRADING -->
     <div id="tab-trading" class="tab-content active">
-        <div>
-            <div class="portfolio-label">Balance Total Estimado</div>
-            <h1 class="portfolio-balance gradient-text">$12,459.82</h1>
-            <div class="portfolio-change"><i class="fa-solid fa-arrow-trend-up"></i> +$284.50 (2.34%)</div>
-        </div>
+        <div class="portfolio-label">Balance Total</div>
+        <h1 class="portfolio-balance gradient-text neon-glow">$12,459.82</h1>
+        <div class="portfolio-change"><i class="fa-solid fa-arrow-trend-up"></i> +$284.50 (2.34%)</div>
         <div class="actions-bar">
-            <div class="action-btn c-buy" onclick="alert('Funcionalidad Comprar')"><i class="fa-solid fa-credit-card"></i><span>Comprar</span></div>
-            <div class="action-btn c-swap" onclick="activateTab(document.querySelectorAll('.tab-item')[2], 'tab-exchange')"><i class="fa-solid fa-retweet"></i><span>Swap</span></div>
+            <div class="action-btn c-buy" onclick="activateTab(document.querySelectorAll('.tab-item')[2], 'tab-exchange')"><i class="fa-solid fa-credit-card"></i><span>Comprar</span></div>
+            <div class="action-btn c-swap" onclick="activateTab(document.querySelectorAll('.tab-item')[2], 'tab-exchange')"><i class="fa-solid fa-rotate"></i><span>Swap</span></div>
             <div class="action-btn c-sell" onclick="activateTab(document.querySelectorAll('.tab-item')[3], 'tab-futuros')"><i class="fa-solid fa-chart-line"></i><span>Futuros</span></div>
         </div>
-        <div class="glass" style="height:220px; margin-top:20px; padding:10px; position:relative;">
-            <div style="position:absolute; top:15px; left:15px;">
-                <div style="color:var(--text-muted); font-weight:700;">Bitcoin BTC</div>
-                <div style="font-weight:800; font-size:1.5rem;">$63,284.50</div>
+        <div class="chart-card">
+            <div class="chart-top">
+                <div>
+                    <div class="label">BTC / USD</div>
+                    <div class="price">$63,284.50</div>
+                </div>
+                <div style="background:rgba(16,185,129,0.12); color:var(--success); padding:5px 10px; border-radius:8px; font-size:0.8rem; font-weight:700; font-family:var(--mono);">+2.34%</div>
             </div>
             <canvas id="mini-chart"></canvas>
         </div>
@@ -184,111 +769,81 @@
 
     <!-- TAB: MERCADO -->
     <div id="tab-mercado" class="tab-content">
-        <div class="market-header"><h3>Mercado P2P & Spot</h3><span style="color:var(--primary); font-weight:600;"><i class="fa-solid fa-magnifying-glass"></i></span></div>
-        <div class="coin-item"><div class="coin-info"><div class="coin-icon ic-btc"><i class="fa-brands fa-bitcoin"></i></div><div class="coin-name-group"><h4>BTC</h4><span>Bitcoin</span></div></div><div style="text-align:right"><div class="coin-price">$63,284.50</div><div class="coin-change" style="color:var(--success)">+2.34%</div></div></div>
-        <div class="coin-item"><div class="coin-info"><div class="coin-icon ic-eth"><i class="fa-brands fa-ethereum"></i></div><div class="coin-name-group"><h4>ETH</h4><span>Ethereum</span></div></div><div style="text-align:right"><div class="coin-price">$3,450.20</div><div class="coin-change" style="color:var(--success)">+1.85%</div></div></div>
-        <div class="coin-item"><div class="coin-info"><div class="coin-icon ic-bnb"><i class="fa-solid fa-diamond"></i></div><div class="coin-name-group"><h4>BNB</h4><span>Binance Coin</span></div></div><div style="text-align:right"><div class="coin-price">$590.30</div><div class="coin-change" style="color:var(--danger)">-0.40%</div></div></div>
-        <div class="coin-item"><div class="coin-info"><div class="coin-icon ic-sol" style="font-size:1rem;"><i class="fa-solid fa-bolt"></i></div><div class="coin-name-group"><h4>SOL</h4><span>Solana</span></div></div><div style="text-align:right"><div class="coin-price">$145.80</div><div class="coin-change" style="color:var(--success)">+5.60%</div></div></div>
+        <div class="section-header"><h3 class="section-title">Mercado</h3><span style="color:var(--primary);"><i class="fa-solid fa-magnifying-glass"></i></span></div>
+        <div id="mercado-list"></div>
     </div>
 
     <!-- TAB: EXCHANGE -->
     <div id="tab-exchange" class="tab-content">
-        <h2 style="margin-bottom:20px;">Swap / Exchange</h2>
-        <div class="trade-card glass">
-            <div class="trade-label"><span>Vendes</span><span>Disponible: 0.85 BTC</span></div>
-            <div style="position:relative;">
-                <input type="number" class="input-trade" value="0.15">
-                <span style="position:absolute; left:20px; top:35px; color:white; font-weight:bold; font-size:1.2rem;">BTC <i class="fa-solid fa-chevron-down" style="font-size:0.8rem; margin-left:5px;"></i></span>
+        <h3 class="section-title" style="margin-bottom:16px;">Swap</h3>
+        <div class="trade-card">
+            <div class="trade-label"><span>Compras</span><span id="saldo-disponible-swap">Balance: $0.00 USD</span></div>
+            <div style="display:flex; gap:10px; margin-top:8px;">
+                <input type="number" id="swap-cantidad" class="input-trade" value="1" style="flex:1; margin-top:0;" oninput="calcularTotalSwap()">
+                <select id="swap-moneda" onchange="calcularTotalSwap()" style="background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.06); border-radius:12px; color:white; font-size:1.1rem; font-weight:700; outline:none; padding:10px; font-family:var(--mono);">
+                </select>
             </div>
-            
-            <div class="swap-icon"><i class="fa-solid fa-arrow-down-up-across-line"></i></div>
-            
-            <div class="trade-label"><span>Recibes</span><span>Balance: $0.00 USD</span></div>
-            <div style="position:relative;">
-                <input type="number" class="input-trade" value="9492.67" readonly style="color:var(--success);">
-                <span style="position:absolute; left:20px; top:35px; color:white; font-weight:bold; font-size:1.2rem;">USD <i class="fa-solid fa-chevron-down" style="font-size:0.8rem; margin-left:5px;"></i></span>
-            </div>
-
-            <button class="btn btn-primary" style="margin-top:25px;" onclick="alert('Intercambio exitoso!')">Confirmar Swap</button>
+            <div class="swap-icon"><i class="fa-solid fa-arrow-down"></i></div>
+            <div class="trade-label"><span>Pagas USD</span><span id="precio-unitario-swap">Precio: $0.00</span></div>
+            <input type="number" id="swap-total" class="input-trade" value="0" readonly style="color:var(--success);">
+            <button class="btn btn-primary" style="margin-top:18px;" id="btn-swap" onclick="confirmarSwap()"><i class="fa-solid fa-check"></i> Confirmar Compra</button>
         </div>
     </div>
 
     <!-- TAB: FUTUROS -->
     <div id="tab-futuros" class="tab-content">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-            <h2>BTC/USD Perpetuo</h2>
-            <span style="background:rgba(168,85,247,0.2); color:var(--primary); padding:5px 10px; border-radius:8px; font-weight:bold;">Aislado 20x</span>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+            <h3 class="section-title" style="margin:0;">BTC/USD</h3>
+            <span style="background:rgba(168,85,247,0.12); color:var(--primary-light); padding:5px 10px; border-radius:8px; font-weight:700; font-size:0.82rem;">20x</span>
         </div>
-        
-        <div class="trade-card glass" style="padding:20px;">
-            <p style="text-align:left; margin-bottom:5px; color:var(--text-muted); font-weight:bold;">Apalancamiento: <span id="lev-val" style="color:white;">20x</span></p>
+        <div class="trade-card">
+            <p style="text-align:left; margin-bottom:4px; color:var(--text-muted); font-size:0.82rem; font-weight:600;">Apalancamiento: <span id="lev-val" style="color:var(--accent);">20x</span></p>
             <input type="range" class="slider" min="1" max="125" value="20" oninput="document.getElementById('lev-val').innerText=this.value+'x'">
-            
-            <div style="display:flex; justify-content:space-between; margin-top:15px;">
-                <span style="color:var(--text-muted);">Monto (USD)</span>
-                <input type="number" value="1000" style="background:transparent; border:none; text-align:right; font-size:1.2rem; color:white; font-weight:bold; width:100px; outline:none; border-bottom:1px solid var(--glass-border);">
+            <div style="display:flex; justify-content:space-between; margin-top:14px;">
+                <span style="color:var(--text-muted); font-size:0.85rem;">Monto (USD)</span>
+                <input type="number" value="1000" style="background:transparent; border:none; text-align:right; font-size:1.1rem; color:white; font-weight:700; width:80px; outline:none; border-bottom:1px solid var(--card-border); font-family:var(--mono);">
             </div>
-            
             <div class="btn-grid">
-                <button class="btn btn-long" onclick="alert('Posición Long Abierta')">Comprar / Long</button>
-                <button class="btn btn-short" onclick="alert('Posición Short Abierta')">Vender / Short</button>
+                <button class="btn btn-long" onclick="alert('Posición Long Abierta')"><i class="fa-solid fa-arrow-up"></i> Long</button>
+                <button class="btn btn-short" onclick="alert('Posición Short Abierta')"><i class="fa-solid fa-arrow-down"></i> Short</button>
             </div>
         </div>
     </div>
 
-    <!-- TAB: PORTAFOLIO (BILLETERA) -->
+    <!-- TAB: PORTAFOLIO -->
     <div id="tab-portafolio" class="tab-content">
-        <h2>Mi Billetera</h2>
-        <div style="text-align:center; padding:30px 0;">
-            <div style="position:relative; width:180px; height:180px; margin:0 auto; border-radius:50%; background: conic-gradient(var(--primary) 0% 60%, var(--accent) 60% 85%, var(--success) 85% 100%); display:flex; align-items:center; justify-content:center; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
-                <div style="background:var(--bg-mid); width:130px; height:130px; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-                    <span style="color:var(--text-muted); font-size:0.8rem;">TOTAL</span>
-                    <span style="font-weight:bold; font-size:1.2rem;">$12.4K</span>
+        <h3 class="section-title" style="margin-bottom:14px;">Mi Billetera</h3>
+        <div class="donut-wrap">
+            <div class="donut-ring">
+                <div class="donut-inner">
+                    <span style="color:var(--text-muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:1px;">Total</span>
+                    <span style="font-family:var(--mono); font-weight:700; font-size:1.15rem;" id="donut-total">$12.4K</span>
                 </div>
             </div>
         </div>
-        <div class="glass" style="padding:15px;">
-            <div style="display:flex; justify-content:space-between; margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:10px;">
-                <div style="display:flex; align-items:center; gap:10px;"><div style="width:12px; height:12px; background:var(--primary); border-radius:50%;"></div> Bitcoin</div>
-                <div style="font-weight:bold;">$7,475 <span style="color:var(--text-muted); font-size:0.8rem; margin-left:5px;">60%</span></div>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:10px;">
-                <div style="display:flex; align-items:center; gap:10px;"><div style="width:12px; height:12px; background:var(--accent); border-radius:50%;"></div> Ethereum</div>
-                <div style="font-weight:bold;">$3,115 <span style="color:var(--text-muted); font-size:0.8rem; margin-left:5px;">25%</span></div>
-            </div>
-            <div style="display:flex; justify-content:space-between;">
-                <div style="display:flex; align-items:center; gap:10px;"><div style="width:12px; height:12px; background:var(--success); border-radius:50%;"></div> USDT / Cash</div>
-                <div style="font-weight:bold;">$1,869 <span style="color:var(--text-muted); font-size:0.8rem; margin-left:5px;">15%</span></div>
-            </div>
-        </div>
+        <div class="glass-card" style="padding:14px;" id="billetera-lista"></div>
     </div>
 
-    <!-- BOTTOM TAB BAR -->
+    <!-- BOTTOM NAV -->
     <div class="tab-bar">
-        <div class="tab-item active" onclick="activateTab(this, 'tab-trading')">
-            <i class="fa-solid fa-house"></i><span>Inicio</span>
-        </div>
-        <div class="tab-item" onclick="activateTab(this, 'tab-mercado')">
-            <i class="fa-solid fa-chart-simple"></i><span>Mercados</span>
-        </div>
-        <div class="tab-item" onclick="activateTab(this, 'tab-exchange')">
-            <div class="tab-center"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
-        </div>
-        <div class="tab-item" onclick="activateTab(this, 'tab-futuros')">
-            <i class="fa-solid fa-bolt"></i><span>Futuros</span>
-        </div>
-        <div class="tab-item" onclick="activateTab(this, 'tab-portafolio')">
-            <i class="fa-solid fa-wallet"></i><span>Billetera</span>
-        </div>
+        <div class="tab-item active" onclick="activateTab(this, 'tab-trading')"><i class="fa-solid fa-house"></i><span>Inicio</span></div>
+        <div class="tab-item" onclick="activateTab(this, 'tab-mercado')"><i class="fa-solid fa-chart-column"></i><span>Mercados</span></div>
+        <div class="tab-item" onclick="activateTab(this, 'tab-exchange')"><div class="tab-center"><i class="fa-solid fa-arrow-right-arrow-left"></i></div></div>
+        <div class="tab-item" onclick="activateTab(this, 'tab-futuros')"><i class="fa-solid fa-bolt-lightning"></i><span>Futuros</span></div>
+        <div class="tab-item" onclick="activateTab(this, 'tab-portafolio')"><i class="fa-solid fa-wallet"></i><span>Billetera</span></div>
     </div>
 </div>
 
 <script>
+    const API_URL = '/api';
+    let currentUser = null;
+    let listaMonedas = [];
+
     function showScreen(screenId) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById(screenId).classList.add('active');
         window.scrollTo(0, 0);
-        if(screenId === 'main-app' && !window.chartInit) { initChart(); }
+        if(screenId === 'main-app' && !window.chartInit) { initChart(); cargarMercado(); cargarPortafolio(); }
     }
 
     function activateTab(tabElement, contentId) {
@@ -296,60 +851,350 @@
         tabElement.classList.add('active');
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         document.getElementById(contentId).classList.add('active');
-        window.scrollTo(0,0);
+        window.scrollTo(0, 0);
+        if(contentId === 'tab-exchange' || contentId === 'tab-trading' || contentId === 'tab-portafolio') cargarPortafolio();
     }
 
-    function sendVerificationCode() {
-        const btn = event.currentTarget;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-        setTimeout(() => {
-            btn.innerHTML = 'Código Enviado';
+    async function sendVerificationCode() {
+        const email = document.getElementById('reg-email').value.trim();
+        if(!email) return alert("Ingresa tu correo");
+        const btn = event.currentTarget; const ori = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; btn.disabled = true;
+        try {
+            const res = await fetch(`${API_URL}/send-code`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email}) });
+            const data = await res.json();
+            if(!res.ok) throw new Error(data.error);
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Enviado';
             document.getElementById('verification-step').style.display = 'block';
-        }, 1000);
+        } catch(err) { alert(err.message); btn.innerHTML = ori; } finally { btn.disabled = false; }
     }
 
-    function registerUser() {
-        showScreen('main-app');
-        document.getElementById('verification-step').style.display = 'none';
+    async function registerUser() {
+        const nombre = document.getElementById('reg-name').value.trim();
+        const email = document.getElementById('reg-email').value.trim();
+        const password = document.getElementById('reg-pass').value;
+        const code = document.getElementById('reg-code').value.trim();
+        if(!nombre||!email||!password||!code) return alert("Todos los campos son requeridos");
+        try {
+            const res = await fetch(`${API_URL}/register`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nombre,email,password,code}) });
+            const data = await res.json();
+            if(!res.ok) throw new Error(data.error);
+            alert("¡Registro exitoso!");
+            document.getElementById('login-email').value = email;
+            document.getElementById('login-pass').value = password;
+            showScreen('login-screen');
+        } catch(err) { alert(err.message); }
     }
 
-    function login() {
-        const btn = event.currentTarget;
-        const ori = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-        setTimeout(() => { showScreen('main-app'); btn.innerHTML = ori; }, 800);
+    async function login() {
+        const email = document.getElementById('login-email').value.trim();
+        const password = document.getElementById('login-pass').value;
+        if(!email||!password) return alert("Ingresa correo y contraseña");
+        const btn = event.currentTarget; const ori = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; btn.disabled = true;
+        try {
+            const res = await fetch(`${API_URL}/login`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,password}) });
+            const data = await res.json();
+            if(!res.ok) throw new Error(data.error);
+            currentUser = data; showScreen('main-app'); cargarPortafolio();
+            document.getElementById('chat-fab').classList.add('visible');
+        } catch(err) { alert(err.message); } finally { btn.innerHTML = ori; btn.disabled = false; }
     }
 
-    function logout() { if(confirm("¿Cerrar sesión?")) showScreen('login-screen'); }
-    function updateAvatar(e) {
-        if(e.target.files[0]) {
-            const rd = new FileReader();
-            rd.onload = (e) => document.querySelectorAll('.profile-pic').forEach(i => i.src = e.target.result);
-            rd.readAsDataURL(e.target.files[0]);
-        }
+    function logout() { if(confirm("¿Cerrar sesión?")) { currentUser = null; showScreen('login-screen'); document.getElementById('chat-fab').classList.remove('visible'); chatOpen = false; document.getElementById('chat-panel').classList.remove('open'); document.getElementById('chat-fab').innerHTML = '<i class="fa-solid fa-robot"></i>'; setFace(''); } }
+    function updateAvatar(e) { if(e.target.files[0]) { const rd = new FileReader(); rd.onload = (e) => document.querySelectorAll('.profile-pic').forEach(i => i.src = e.target.result); rd.readAsDataURL(e.target.files[0]); } }
+
+    async function cargarMercado() {
+        try {
+            const res = await fetch(`${API_URL}/precios`, { method: 'GET' });
+            if (!res.ok) throw new Error('Error al cargar monedas');
+            listaMonedas = await res.json();
+            document.getElementById('mercado-list').innerHTML = listaMonedas.map(m => `
+                <div class="coin-item">
+                    <div class="coin-info">
+                        <div class="coin-icon ic-btc"><i class="fa-solid fa-coins"></i></div>
+                        <div class="coin-name-group"><h4>${m.simbolo}</h4><span>${m.nombre}</span></div>
+                    </div>
+                    <div class="coin-price">$${parseFloat(m.precio_usd).toLocaleString('en-US',{minimumFractionDigits:2})}</div>
+                </div>
+            `).join('');
+            document.getElementById('swap-moneda').innerHTML = listaMonedas.map(m => `<option value="${m.id}" data-precio="${m.precio_usd}">${m.simbolo}</option>`).join('');
+            calcularTotalSwap();
+        } catch(err) { console.error(err); }
+    }
+
+    async function cargarPortafolio() {
+        if(!currentUser) return;
+        try {
+            const res = await fetch(`${API_URL}/usuario/${currentUser.id}/portafolio`);
+            const data = await res.json();
+            const saldo = parseFloat(data.usuario.saldo_usd).toFixed(2);
+            const n = document.getElementById('settings-user-name'); if(n) n.innerText = data.usuario.nombre;
+            const e = document.getElementById('settings-user-email'); if(e) e.innerText = data.usuario.email;
+            const b = document.querySelector('.portfolio-balance'); if(b) b.innerText = `$${parseFloat(saldo).toLocaleString('en-US',{minimumFractionDigits:2})}`;
+            const s = document.getElementById('saldo-disponible-swap'); if(s) s.innerText = `Balance: $${saldo} USD`;
+            const d = document.getElementById('donut-total'); if(d) d.innerText = `$${(parseFloat(saldo)/1000).toFixed(1)}K`;
+            let html = `<div class="wallet-item"><div style="display:flex;align-items:center;gap:10px;"><div class="pulse-dot green"></div> USD</div><div style="font-weight:700;color:var(--success);font-family:var(--mono);">$${saldo}</div></div>`;
+            data.portafolio.forEach(p => {
+                html += `<div class="wallet-item"><div style="display:flex;align-items:center;gap:10px;"><div class="pulse-dot purple"></div> ${p.nombre}</div><div style="font-weight:700;font-family:var(--mono);">${parseFloat(p.cantidad).toFixed(4)} <span style="color:var(--text-muted);">${p.simbolo}</span></div></div>`;
+            });
+            document.getElementById('billetera-lista').innerHTML = html;
+        } catch(err) { console.error(err); }
+    }
+
+    function calcularTotalSwap() {
+        const sel = document.getElementById('swap-moneda');
+        if(!sel.options.length) return;
+        const precio = parseFloat(sel.options[sel.selectedIndex].dataset.precio);
+        const cant = parseFloat(document.getElementById('swap-cantidad').value) || 0;
+        document.getElementById('precio-unitario-swap').innerText = `Precio: $${precio.toLocaleString('en-US',{minimumFractionDigits:2})}`;
+        document.getElementById('swap-total').value = (precio * cant).toFixed(2);
+    }
+
+    async function confirmarSwap() {
+        if(!currentUser) return;
+        const btn = document.getElementById('btn-swap'); btn.disabled = true;
+        const sel = document.getElementById('swap-moneda');
+        const moneda_id = sel.value;
+        const precio = parseFloat(sel.options[sel.selectedIndex].dataset.precio);
+        const cantidad = parseFloat(document.getElementById('swap-cantidad').value);
+        try {
+            const res = await fetch(`${API_URL}/trade`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({usuario_id:currentUser.id,moneda_id,tipo:'compra',cantidad,precio_usd:precio}) });
+            const data = await res.json();
+            if(!res.ok) throw new Error(data.error);
+            alert('¡Compra exitosa!'); cargarPortafolio();
+        } catch(err) { alert(err.message); } finally { btn.disabled = false; }
     }
 
     function initChart() {
         window.chartInit = true;
         const ctx = document.getElementById('mini-chart').getContext('2d');
-        const gradient = ctx.createLinearGradient(0,0,0,220);
-        gradient.addColorStop(0, 'rgba(168, 85, 247, 0.4)');
-        gradient.addColorStop(1, 'rgba(168, 85, 247, 0.0)');
+        const grad = ctx.createLinearGradient(0, 0, 0, 100);
+        grad.addColorStop(0, 'rgba(168, 85, 247, 0.25)');
+        grad.addColorStop(1, 'rgba(168, 85, 247, 0.0)');
         new Chart(ctx, {
             type: 'line',
             data: {
-                labels: [1,2,3,4,5,6],
-                datasets: [{ data: [61000, 62500, 61800, 63100, 62900, 63284], borderColor: '#a855f7', backgroundColor: gradient, fill: true, tension: 0.4, borderWidth: 3 }]
+                labels: ['1h','2h','3h','4h','5h','6h'],
+                datasets: [{
+                    data: [61000, 62500, 61800, 63100, 62900, 63284],
+                    borderColor: '#a855f7', backgroundColor: grad, fill: true,
+                    tension: 0.4, borderWidth: 2, pointRadius: 0,
+                    pointHoverRadius: 5, pointHoverBackgroundColor: '#a855f7',
+                    pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2
+                }]
             },
-            options: { plugins: {legend:{display:false}}, scales: {x:{display:false}, y:{display:false, min:60000}}, maintainAspectRatio:false }
+            options: {
+                plugins: { legend:{display:false}, tooltip:{backgroundColor:'rgba(9,6,20,0.9)',titleColor:'#f8fafc',bodyColor:'#a855f7',borderColor:'rgba(168,85,247,0.3)',borderWidth:1,cornerRadius:8,padding:8} },
+                scales: { x:{display:false}, y:{display:false,min:60000} },
+                maintainAspectRatio: false, interaction:{mode:'nearest',axis:'x',intersect:false}
+            }
         });
     }
 
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js');
+    // Chatbot - AdvanceBot
+    let chatOpen = false;
+    let firstChatOpen = true;
+    let botFace = document.getElementById('bot-face');
+
+    // Drag functionality
+    function initDrag() {
+        const panel = document.getElementById('chat-panel');
+        const header = document.getElementById('chat-header');
+        let isDragging = false, startX, startY, origX, origY;
+
+        const onMove = (cx, cy) => {
+            if (!isDragging) return;
+            const dx = cx - startX;
+            const dy = cy - startY;
+            panel.style.right = 'auto';
+            panel.style.bottom = 'auto';
+            panel.style.left = Math.max(0, origX + dx) + 'px';
+            panel.style.top = Math.max(0, origY + dy) + 'px';
+        };
+
+        header.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            panel.classList.add('dragging');
+            startX = e.clientX;
+            startY = e.clientY;
+            const rect = panel.getBoundingClientRect();
+            origX = rect.left;
+            origY = rect.top;
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => onMove(e.clientX, e.clientY));
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            panel.classList.remove('dragging');
+        });
+
+        header.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            panel.classList.add('dragging');
+            const t = e.touches[0];
+            startX = t.clientX;
+            startY = t.clientY;
+            const rect = panel.getBoundingClientRect();
+            origX = rect.left;
+            origY = rect.top;
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            const t = e.touches[0];
+            onMove(t.clientX, t.clientY);
+        });
+        document.addEventListener('touchend', () => {
+            isDragging = false;
+            panel.classList.remove('dragging');
         });
     }
+
+    function setFace(state) {
+        if(!botFace) botFace = document.getElementById('bot-face');
+        botFace.className = 'bot-face ' + state;
+    }
+
+    const chatResponses = {
+        invertir: "📊 Según el mercado actual, BTC está en $63,284.50. Mi consejo: si eres principiante, empieza con montos pequeños. El mercado cripto es volátil, nunca inviertas más de lo que puedas permitirte perder. ¿Quieres saber más sobre alguna moneda?",
+        comprar: "💰 Para comprar, ve a la pestaña **Swap** (el botón central). Ahí eliges la moneda y la cantidad. También puedes ir a **Mercados** y ver los precios actuales. ¿Quieres que te explique algo más?",
+        vender: "📉 Para vender, ve a **Swap** y selecciona la moneda que quieres vender. El sistema convertirá automáticamente a USD. Recuerda: vender en momentos de subida maximiza tus ganancias.",
+        swap: "🔄 **Swap** te permite intercambiar criptomonedas directamente. Ve a la pestaña central, selecciona la moneda, ingresa la cantidad y confirma. Es rápido y seguro.",
+        futuros: "⚡ **Futuros** te permite operar con apalancamiento (hasta 125x). Puedes ir Long (comprar) o Short (vender). ⚠️ Es de alto riesgo, ideal para traders experimentados.",
+        portafolio: "💼 Tu **Billetera** muestra todo lo que posees. Ve a la pestaña Billetera para ver tu balance total, cada moneda y su cantidad. Se actualiza en tiempo real.",
+        precio: "📈 Los precios actuales:\n• BTC: $63,284.50\n• ETH: $3,450.20\n• BNB: $590.30\n• SOL: $145.80\nVe a **Mercados** para ver todos los precios actualizados.",
+        registro: "📝 Para registrarte: ve a **Crear Cuenta**, ingresa tu nombre, correo y contraseña. Recibirás un código de verificación por email. Ingrésalo y ¡listo!",
+        login: "🔑 Para iniciar sesión: ingresa tu correo y contraseña en la pantalla de inicio. Si no tienes cuenta, primero debes registrarte.",
+        seguridad: "🔒 Tu cuenta está protegida con:\n• Contraseña encriptada (bcrypt)\n• Verificación por email\n• Código de confirmación para registro\nSiempre mantén tu contraseña segura.",
+        saldo: "💵 Tu saldo USD aparece en la pantalla principal. Cada usuario empieza con $10,000.00 de saldo demo. Puedes comprar y vender para ver cómo cambia.",
+        bitcoin: "₿ Bitcoin (BTC) es la criptomoneda más valiosa. Actualmente cotiza en $63,284.50. Es la más estable pero también la más cara. Ideal para inversión a largo plazo.",
+        ethereum: "⟠ Ethereum (ETH) cotiza en $3,450.20. Es la segunda cripto más importante, usada para contratos inteligentes y DeFi.",
+        ayuda: "🤖 Soy **AdvanceBot**, tu consejero de inversiones. Puedo ayudarte con:\n\n• 📊 Consejos para invertir\n• 💰 Cómo comprar/vender\n• 🔄 Cómo usar Swap\n• ⚡ Cómo funciona Futuros\n• 📈 Precios actuales\n• 🔐 Seguridad\n\n¡Pregúntame lo que quieras!",
+        hola: "¡Hola! 👋 Soy **AdvanceBot**, tu consejero de inversiones. ¿En qué puedo ayudarte? Puedo darte consejos sobre el mercado, explicarte cómo usar la app o darte precios actuales.",
+        gracias: "¡De nada! 😊 Estoy aquí para ayudarte. Si tienes más dudas, no dudes en preguntar. ¡Buena suerte con tus inversiones! ✨",
+        momento: "🕐 El mejor momento para invertir es cuando:\n\n• Has investigado la moneda\n• El mercado muestra estabilidad\n• Tienes capital que no necesitas a corto plazo\n• Estás preparado para la volatilidad\n\n⚠️ Nunca inviertas por impulso o FOMO.",
+        riesgo: "⚠️ **Gestión de riesgo:**\n\n• No inviertas más del 5% de tu capital en una sola operación\n• Usa stop-loss en futuros\n• Diversifica tu portafolio\n• No operes con dinero que necesitas\n• Estudia antes de invertir"
+    };
+
+    const defaultSuggestions = ['💡 ¿Cuándo invertir?', '📈 Precios actuales', '🔄 Cómo usar Swap', '⚡ Qué son Futuros', '🤖 Ayuda'];
+
+    function toggleChat() {
+        chatOpen = !chatOpen;
+        const panel = document.getElementById('chat-panel');
+        const fab = document.getElementById('chat-fab');
+        if(chatOpen) {
+            panel.classList.add('open');
+            fab.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            initDrag();
+            if(firstChatOpen) {
+                setFace('happy');
+                addBotMessage("¡Hola! 👋 Soy **AdvanceBot**, tu consejero de inversiones. ¿En qué puedo ayudarte?");
+                showSuggestions(defaultSuggestions);
+                setTimeout(() => setFace(''), 2000);
+                firstChatOpen = false;
+            }
+        } else {
+            panel.classList.remove('open');
+            fab.innerHTML = '<i class="fa-solid fa-robot"></i>';
+        }
+    }
+
+    function addBotMessage(text) {
+        const container = document.getElementById('chat-messages');
+        const msg = document.createElement('div');
+        msg.className = 'chat-msg bot';
+        msg.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+        container.appendChild(msg);
+        container.scrollTop = container.scrollHeight;
+        setTimeout(() => setFace(''), 3000);
+    }
+
+    function addUserMessage(text) {
+        const container = document.getElementById('chat-messages');
+        const msg = document.createElement('div');
+        msg.className = 'chat-msg user';
+        msg.textContent = text;
+        container.appendChild(msg);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function showTyping() {
+        setFace('thinking');
+        const container = document.getElementById('chat-messages');
+        const typing = document.createElement('div');
+        typing.className = 'chat-msg bot';
+        typing.id = 'typing-indicator';
+        typing.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+        container.appendChild(typing);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function hideTyping() {
+        const t = document.getElementById('typing-indicator');
+        if(t) t.remove();
+        setFace('talking');
+    }
+
+    function showSuggestions(suggestions) {
+        const container = document.getElementById('chat-suggestions');
+        container.innerHTML = suggestions.map(s => `<button class="chat-suggestion-btn" onclick="handleSuggestion('${s}')">${s}</button>`).join('');
+    }
+
+    function handleSuggestion(text) {
+        addUserMessage(text);
+        document.getElementById('chat-suggestions').innerHTML = '';
+        showTyping();
+        setTimeout(() => {
+            hideTyping();
+            const response = getBotResponse(text);
+            addBotMessage(response);
+            showSuggestions(defaultSuggestions);
+        }, 1200);
+    }
+
+    function sendChat() {
+        const input = document.getElementById('chat-input');
+        const text = input.value.trim();
+        if(!text) return;
+        addUserMessage(text);
+        input.value = '';
+        document.getElementById('chat-suggestions').innerHTML = '';
+        showTyping();
+        setTimeout(() => {
+            hideTyping();
+            const response = getBotResponse(text);
+            addBotMessage(response);
+            showSuggestions(defaultSuggestions);
+        }, 1500);
+    }
+
+    function getBotResponse(text) {
+        const lower = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+        if(lower.includes('invertir') || lower.includes('inversion') || lower.includes('consejo') || lower.includes('recomienda')) return chatResponses.invertir;
+        if(lower.includes('comprar') || lower.includes('buy') || lower.includes('adquirir')) return chatResponses.comprar;
+        if(lower.includes('vender') || lower.includes('sell') || lower.includes('venta')) return chatResponses.vender;
+        if(lower.includes('swap') || lower.includes('intercambiar') || lower.includes('cambiar')) return chatResponses.swap;
+        if(lower.includes('futuro') || lower.includes('apalancamiento') || lower.includes('long') || lower.includes('short')) return chatResponses.futuros;
+        if(lower.includes('portafolio') || lower.includes('billetera') || lower.includes('wallet')) return chatResponses.portafolio;
+        if(lower.includes('precio') || lower.includes('cuanto') || lower.includes('valor') || lower.includes('cotiza')) return chatResponses.precio;
+        if(lower.includes('registro') || lower.includes('registrar') || lower.includes('crear cuenta')) return chatResponses.registro;
+        if(lower.includes('login') || lower.includes('iniciar') || lower.includes('entrar') || lower.includes('sesion')) return chatResponses.login;
+        if(lower.includes('seguridad') || lower.includes('seguro') || lower.includes('proteger') || lower.includes('privacidad')) return chatResponses.seguridad;
+        if(lower.includes('saldo') || lower.includes('balance') || lower.includes('dinero') || lower.includes('usd')) return chatResponses.saldo;
+        if(lower.includes('bitcoin') || lower.includes('btc')) return chatResponses.bitcoin;
+        if(lower.includes('ethereum') || lower.includes('eth')) return chatResponses.ethereum;
+        if(lower.includes('cuando') || lower.includes('momento') || lower.includes('mejor hora') || lower.includes('indicador')) return chatResponses.momento;
+        if(lower.includes('riesgo') || lower.includes('peligro') || lower.includes('perder') || lower.includes('cuidado')) return chatResponses.riesgo;
+        if(lower.includes('hola') || lower.includes('hey') || lower.includes('buenas') || lower.includes('hi')) return chatResponses.hola;
+        if(lower.includes('gracias') || lower.includes('thank') || lower.includes('genial')) return chatResponses.gracias;
+        if(lower.includes('ayuda') || lower.includes('help') || lower.includes('que puedes') || lower.includes('funciones')) return chatResponses.ayuda;
+
+        return "🤔 No estoy seguro de entender eso. ¿Puedes preguntarme sobre:\n\n• 📊 Consejos de inversión\n• 💰 Cómo comprar o vender\n• 🔄 Swap y Futuros\n• 📈 Precios actuales\n• 🔐 Seguridad\n\n¡Escribe 'ayuda' para ver todo lo que puedo hacer!";
+    }
+
+    if('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js'); }); }
 </script>
 </body>
 </html>

@@ -505,9 +505,24 @@
             transition: all 0.3s ease;
         }
 
+        /* Normal blink */
+        .bot-eye:nth-child(1) {
+            animation: eyeBlink 3s ease-in-out infinite;
+        }
+        .bot-eye:nth-child(2) {
+            animation: eyeBlink 3s ease-in-out infinite 0.15s;
+        }
+        @keyframes eyeBlink {
+            0%, 45%, 47%, 95%, 100% { height: 4px; opacity: 1; }
+            46% { height: 1px; opacity: 0.7; }
+        }
+
         /* Thinking - eyes look side to side */
         .bot-face.thinking .bot-eye:nth-child(1) {
             animation: lookAround 1.2s ease-in-out infinite;
+        }
+        .bot-face.thinking .bot-eye:nth-child(2) {
+            animation: lookAround 1.2s ease-in-out infinite 0.1s;
         }
         @keyframes lookAround {
             0%, 100% { transform: translateX(0); width: 8px; }
@@ -520,7 +535,8 @@
         }
 
         /* Talking - mouth animates */
-        .bot-face.talking .bot-eye:nth-child(1) { animation: none; }
+        .bot-face.talking .bot-eye:nth-child(1),
+        .bot-face.talking .bot-eye:nth-child(2) { animation: none; }
         .bot-face.talking .bot-mouth {
             animation: mouthTalk 0.3s ease-in-out infinite;
         }
@@ -530,7 +546,8 @@
         }
 
         /* Happy - bigger smile */
-        .bot-face.happy .bot-eye {
+        .bot-face.happy .bot-eye:nth-child(1),
+        .bot-face.happy .bot-eye:nth-child(2) {
             animation: none; height: 6px; border-radius: 0 0 10px 10px;
         }
         .bot-face.happy .bot-mouth {
@@ -541,7 +558,8 @@
         }
 
         /* Sad - frown */
-        .bot-face.sad .bot-eye {
+        .bot-face.sad .bot-eye:nth-child(1),
+        .bot-face.sad .bot-eye:nth-child(2) {
             animation: none; height: 5px; border-radius: 10px 10px 0 0;
         }
         .bot-face.sad .bot-mouth {
@@ -549,6 +567,109 @@
             border-radius: 16px 16px 0 0;
             background: #ef4444;
             box-shadow: 0 0 6px #ef4444, 0 0 12px rgba(239, 68, 68, 0.5);
+        }
+
+        /* Excited/Surprised - wide eyes and O mouth 😲 */
+        .bot-face.excited .bot-eye:nth-child(1),
+        .bot-face.excited .bot-eye:nth-child(2) {
+            animation: none; height: 8px; width: 10px; border-radius: 0 0 10px 10px;
+            background: #facc15;
+            box-shadow: 0 0 12px #facc15, 0 0 24px rgba(250, 204, 21, 0.8);
+        }
+        .bot-face.excited .bot-mouth {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #facc15;
+            box-shadow: 0 0 10px #facc15, 0 0 20px rgba(250, 204, 21, 0.6);
+        }
+
+        /* Cool - half-closed eyes 😎 */
+        .bot-face.cool .bot-eye:nth-child(1),
+        .bot-face.cool .bot-eye:nth-child(2) {
+            animation: none; height: 3px; width: 10px; border-radius: 0 0 10px 10px;
+            background: #22d3ee;
+            box-shadow: 0 0 8px #22d3ee, 0 0 16px rgba(34, 211, 238, 0.6);
+        }
+        .bot-face.cool .bot-mouth {
+            width: 18px; height: 4px;
+            border-radius: 0 0 18px 18px;
+            background: #22d3ee;
+            box-shadow: 0 0 8px #22d3ee, 0 0 16px rgba(34, 211, 238, 0.6);
+        }
+
+        /* Wink - one eye closed 😉 */
+        .bot-face.wink .bot-eye:nth-child(1) {
+            animation: none; height: 1px; width: 8px;
+        }
+        .bot-face.wink .bot-eye:nth-child(2) {
+            animation: none; height: 5px; border-radius: 0 0 10px 10px;
+        }
+        .bot-face.wink .bot-mouth {
+            width: 18px; height: 6px;
+            border-radius: 0 0 18px 18px;
+        }
+
+        /* Laughing - eyes squinted 🤣 */
+        .bot-face.laugh .bot-eye:nth-child(1),
+        .bot-face.laugh .bot-eye:nth-child(2) {
+            animation: none; height: 3px; width: 10px; border-radius: 0 0 10px 10px;
+        }
+        .bot-face.laugh .bot-mouth {
+            width: 22px; height: 10px;
+            border-radius: 0 0 22px 22px;
+            background: #facc15;
+            box-shadow: 0 0 12px #facc15, 0 0 24px rgba(250, 204, 21, 0.8);
+        }
+
+        /* Money - dollar eyes 🤑 */
+        .bot-face.money .bot-eye:nth-child(1),
+        .bot-face.money .bot-eye:nth-child(2) {
+            animation: none; height: 8px; width: 6px;
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981, 0 0 16px rgba(16, 185, 129, 0.6);
+        }
+        .bot-face.money .bot-mouth {
+            width: 18px; height: 6px;
+            border-radius: 0 0 18px 18px;
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981, 0 0 16px rgba(16, 185, 129, 0.6);
+        }
+
+        /* Shocked - wide open mouth 😧 */
+        .bot-face.shocked .bot-eye:nth-child(1),
+        .bot-face.shocked .bot-eye:nth-child(2) {
+            animation: none; height: 8px; width: 8px; border-radius: 50%;
+        }
+        .bot-face.shocked .bot-mouth {
+            width: 12px; height: 12px; border-radius: 50%;
+            background: #ef4444;
+            box-shadow: 0 0 10px #ef4444, 0 0 20px rgba(239, 68, 68, 0.6);
+        }
+
+        /* Love - heart eyes 😍 */
+        .bot-face.love .bot-eye:nth-child(1),
+        .bot-face.love .bot-eye:nth-child(2) {
+            animation: none; height: 6px; width: 6px;
+            background: #ec4899;
+            border-radius: 50% 50% 0 0;
+            box-shadow: 0 0 8px #ec4899, 0 0 16px rgba(236, 72, 153, 0.6);
+        }
+        .bot-face.love .bot-mouth {
+            width: 16px; height: 8px;
+            border-radius: 0 0 16px 16px;
+            background: #ec4899;
+            box-shadow: 0 0 8px #ec4899, 0 0 16px rgba(236, 72, 153, 0.6);
+        }
+
+        /* Suspicious - one eye raised 🤨 */
+        .bot-face.suspicious .bot-eye:nth-child(1) {
+            animation: none; height: 3px; width: 8px; transform: translateY(-2px);
+        }
+        .bot-face.suspicious .bot-eye:nth-child(2) {
+            animation: none; height: 5px;
+        }
+        .bot-face.suspicious .bot-mouth {
+            width: 14px; height: 3px;
+            border-radius: 0 0 14px 14px;
         }
 
         .chat-header-info { flex: 1; position: relative; z-index: 1; }
@@ -1271,24 +1392,25 @@
     function getBotResponse(text) {
         const lower = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-        if(lower.includes('invertir') || lower.includes('inversion') || lower.includes('consejo') || lower.includes('recomienda')) { setFace('happy'); return chatResponses.invertir; }
+        if(lower.includes('invertir') || lower.includes('inversion') || lower.includes('consejo') || lower.includes('recomienda')) { setFace('excited'); return chatResponses.invertir; }
         if(lower.includes('comprar') || lower.includes('buy') || lower.includes('adquirir')) { setFace('happy'); return chatResponses.comprar; }
         if(lower.includes('vender') || lower.includes('sell') || lower.includes('venta')) { setFace('thinking'); return chatResponses.vender; }
-        if(lower.includes('swap') || lower.includes('intercambiar') || lower.includes('cambiar')) { setFace('happy'); return chatResponses.swap; }
-        if(lower.includes('futuro') || lower.includes('apalancamiento') || lower.includes('long') || lower.includes('short')) { setFace('thinking'); return chatResponses.futuros; }
-        if(lower.includes('portafolio') || lower.includes('billetera') || lower.includes('wallet')) { setFace('happy'); return chatResponses.portafolio; }
-        if(lower.includes('precio') || lower.includes('cuanto') || lower.includes('valor') || lower.includes('cotiza')) { setFace('thinking'); return chatResponses.precio; }
+        if(lower.includes('swap') || lower.includes('intercambiar') || lower.includes('cambiar')) { setFace('cool'); return chatResponses.swap; }
+        if(lower.includes('futuro') || lower.includes('apalancamiento') || lower.includes('long') || lower.includes('short')) { setFace('excited'); return chatResponses.futuros; }
+        if(lower.includes('portafolio') || lower.includes('billetera') || lower.includes('wallet')) { setFace('money'); return chatResponses.portafolio; }
+        if(lower.includes('precio') || lower.includes('cuanto') || lower.includes('valor') || lower.includes('cotiza')) { setFace('shocked'); return chatResponses.precio; }
         if(lower.includes('registro') || lower.includes('registrar') || lower.includes('crear cuenta')) { setFace('happy'); return chatResponses.registro; }
-        if(lower.includes('login') || lower.includes('iniciar') || lower.includes('entrar') || lower.includes('sesion')) { setFace('happy'); return chatResponses.login; }
-        if(lower.includes('seguridad') || lower.includes('seguro') || lower.includes('proteger') || lower.includes('privacidad')) { setFace('thinking'); return chatResponses.seguridad; }
-        if(lower.includes('saldo') || lower.includes('balance') || lower.includes('dinero') || lower.includes('usd')) { setFace('happy'); return chatResponses.saldo; }
-        if(lower.includes('bitcoin') || lower.includes('btc')) { setFace('thinking'); return chatResponses.bitcoin; }
-        if(lower.includes('ethereum') || lower.includes('eth')) { setFace('happy'); return chatResponses.ethereum; }
-        if(lower.includes('cuando') || lower.includes('momento') || lower.includes('mejor hora') || lower.includes('indicador')) { setFace('thinking'); return chatResponses.momento; }
+        if(lower.includes('login') || lower.includes('iniciar') || lower.includes('entrar') || lower.includes('sesion')) { setFace('wink'); return chatResponses.login; }
+        if(lower.includes('seguridad') || lower.includes('seguro') || lower.includes('proteger') || lower.includes('privacidad')) { setFace('cool'); return chatResponses.seguridad; }
+        if(lower.includes('saldo') || lower.includes('balance') || lower.includes('dinero') || lower.includes('usd')) { setFace('money'); return chatResponses.saldo; }
+        if(lower.includes('bitcoin') || lower.includes('btc')) { setFace('shocked'); return chatResponses.bitcoin; }
+        if(lower.includes('ethereum') || lower.includes('eth')) { setFace('cool'); return chatResponses.ethereum; }
+        if(lower.includes('cuando') || lower.includes('momento') || lower.includes('mejor hora') || lower.includes('indicador')) { setFace('suspicious'); return chatResponses.momento; }
         if(lower.includes('riesgo') || lower.includes('peligro') || lower.includes('perder') || lower.includes('cuidado')) { setFace('sad'); return chatResponses.riesgo; }
         if(lower.includes('hola') || lower.includes('hey') || lower.includes('buenas') || lower.includes('hi')) { setFace('happy'); return chatResponses.hola; }
-        if(lower.includes('gracias') || lower.includes('thank') || lower.includes('genial')) { setFace('happy'); return chatResponses.gracias; }
-        if(lower.includes('ayuda') || lower.includes('help') || lower.includes('que puedes') || lower.includes('funciones')) { setFace('thinking'); return chatResponses.ayuda; }
+        if(lower.includes('gracias') || lower.includes('thank') || lower.includes('genial')) { setFace('laugh'); return chatResponses.gracias; }
+        if(lower.includes('ayuda') || lower.includes('help') || lower.includes('que puedes') || lower.includes('funciones')) { setFace('suspicious'); return chatResponses.ayuda; }
+        if(lower.includes('te amo') || lower.includes('love') || lower.includes('increible') || lower.includes('me encanta')) { setFace('love'); return "💜 ¡Gracias! Tú también me caes super bien. ¡Vamos a seguir aprendiendo juntos!"; }
 
         setFace('thinking');
         return "🤔 No estoy seguro de entender eso. ¿Puedes preguntarme sobre:\n\n• 📊 Consejos de inversión\n• 💰 Cómo comprar o vender\n• 🔄 Swap y Futuros\n• 📈 Precios actuales\n• 🔐 Seguridad\n\n¡Escribe 'ayuda' para ver todo lo que puedo hacer!";

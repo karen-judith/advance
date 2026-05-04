@@ -829,6 +829,23 @@
         <div class="input-group"><input type="password" id="login-pass" placeholder="Clave" value="123456"><i class="fa-solid fa-lock"></i></div>
         <button class="btn btn-primary" onclick="login()"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</button>
         <button class="btn btn-secondary" onclick="showScreen('register-screen')"><i class="fa-solid fa-user-plus"></i> Crear Cuenta</button>
+        <button class="btn btn-secondary" style="margin-top:8px; background:transparent; border:none; color:var(--text-muted); font-size:0.85rem;" onclick="showScreen('forgot-password-screen')"><i class="fa-solid fa-key"></i> ¿Olvidaste tu contraseña?</button>
+    </div>
+</div>
+
+<!-- Forgot Password - Step 1: Email -->
+<div id="forgot-password-screen" class="screen auth-container">
+    <div class="auth-card">
+        <div class="logo gradient-text neon-glow" style="margin-bottom:24px; position:relative; font-size:28px;"><i class="fa-solid fa-layer-group"></i> ADVANCE</div>
+        <p style="color:rgba(248,250,252,0.45); margin-bottom:32px; font-size:0.9rem; position:relative;">Recupera tu contraseña</p>
+        <div class="input-group"><input type="email" id="reset-email" placeholder="Correo electrónico"><i class="fa-solid fa-envelope"></i></div>
+        <button class="btn btn-primary" onclick="sendResetCode()"><i class="fa-solid fa-paper-plane"></i> Enviar Código</button>
+        <div id="reset-verification-step" style="display:none; margin-top:20px; border-top:0.5px solid rgba(255,255,255,0.08); padding-top:20px;">
+            <div class="input-group"><input type="text" id="reset-code" placeholder="Código de verificación"><i class="fa-solid fa-shield-halved"></i></div>
+            <div class="input-group"><input type="password" id="reset-new-password" placeholder="Nueva contraseña"><i class="fa-solid fa-lock"></i></div>
+            <button class="btn btn-primary" style="background:rgba(16,185,129,0.4); border-color:rgba(255,255,255,0.15);" onclick="resetPassword()"><i class="fa-solid fa-check"></i> Cambiar Contraseña</button>
+        </div>
+        <button class="btn btn-secondary" style="margin-top:12px;" onclick="showScreen('login-screen')"><i class="fa-solid fa-arrow-left"></i> Volver al login</button>
     </div>
 </div>
 
@@ -1057,6 +1074,75 @@
             currentUser = data; showScreen('main-app'); cargarPortafolio();
             document.getElementById('chat-fab').classList.add('visible');
         } catch(err) { alert(err.message); } finally { btn.innerHTML = ori; btn.disabled = false; }
+    }
+
+    // Password Reset Functions
+    async function sendResetCode() {
+        const email = document.getElementById('reset-email').value.trim();
+        if (!email) { alert('Por favor ingresa tu correo'); return; }
+
+        try {
+            const res = await fetch('http://localhost:5000/api/forgot-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert('Código enviado a ' + email);
+                document.getElementById('reset-verification-step').style.display = 'block';
+            } else {
+                alert(data.error || 'Error al enviar código');
+            }
+        } catch (err) {
+            alert('Error de conexión');
+        }
+    }
+
+    async function resetPassword() {
+        const email = document.getElementById('reset-email').value.trim();
+        const code = document.getElementById('reset-code').value.trim();
+        const newPassword = document.getElementById('reset-new-password').value;
+
+        if (!email || !code || !newPassword) { alert('Completa todos los campos'); return; }
+        if (newPassword.length < 6) { alert('La contraseña debe tener al menos 6 caracteres'); return; }
+
+        try {
+            // First verify the code
+            const verifyRes = await fetch('http://localhost:5000/api/verify-reset-code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, code })
+            });
+
+            if (!verifyRes.ok) {
+                const verifyData = await verifyRes.json();
+                alert(verifyData.error || 'Código inválido');
+                return;
+            }
+
+            // Then reset the password
+            const resetRes = await fetch('http://localhost:5000/api/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, code, newPassword })
+            });
+
+            const resetData = await resetRes.json();
+            if (resetRes.ok) {
+                alert('Contraseña actualizada correctamente. Ahora puedes iniciar sesión.');
+                showScreen('login-screen');
+                document.getElementById('login-email').value = email;
+                document.getElementById('reset-email').value = '';
+                document.getElementById('reset-code').value = '';
+                document.getElementById('reset-new-password').value = '';
+                document.getElementById('reset-verification-step').style.display = 'none';
+            } else {
+                alert(resetData.error || 'Error al cambiar contraseña');
+            }
+        } catch (err) {
+            alert('Error de conexión');
+        }
     }
 
     function logout() { if(confirm("¿Cerrar sesión?")) { currentUser = null; showScreen('login-screen'); document.getElementById('chat-fab').classList.remove('visible'); chatOpen = false; document.getElementById('chat-panel').classList.remove('open'); document.getElementById('chat-fab').innerHTML = '<i class="fa-solid fa-robot"></i>'; setFace(''); } }

@@ -139,6 +139,123 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// Endpoint para solicitar código de recuperación de contraseña
+app.post('/api/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email requerido' });
+
+  try {
+    // Verificar si el usuario existe
+    const userResult = await pool.query('SELECT id FROM usuarios WHERE email = $1', [email]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'No existe una cuenta con este email' });
+    }
+
+    // Generar código de 6 dígitos
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
+
+    // Guardar código en la base de datos
+    await pool.query(
+      'UPDATE usuarios SET reset_code = $1, reset_code_expiry = $2 WHERE email = $3',
+      [code, expiresAt, email]
+    );
+
+    console.log("CODIGO DE RECUPERACION para", email, ":", code);
+
+    const info = await transporter.sendMail({
+      from: '"Advance Trading" <no-reply@advance.com>',
+      to: email,
+      subject: 'Recuperación de contraseña - Advance',
+      text: `Tu código de recuperación es: ${code}. Expirará en 10 minutos.`,
+      html: `<b>Tu código de recuperación es: <span style="font-size:20px; color:#a855f7">${code}</span></b><br>Expirará en 10 minutos.`
+    });
+
+    console.log("Mensaje enviado: %s", info.messageId);
+    res.json({ success: true, message: 'Código de recuperación enviado' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al enviar el correo' });
+  }
+});
+
+// Endpoint para verificar código de recuperación
+app.post('/api/verify-reset-code', async (req, res) => {
+  const { email, code } = req.body;
+  if (!email || !code) return res.status(400).json({ error: 'Email y código requeridos' });
+
+  try {
+    const result = await pool.query(
+      'SELECT reset_code, reset_code_expiry FROM usuarios WHERE email = $1',
+      [email]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Email no encontrado' });
+    }
+
+    const user = result.rows[0];
+
+    if (!user.reset_code || user.reset_code !== code) {
+      return res.status(400).json({ error: 'Código inválido' });
+    }
+
+    if (new Date(user.reset_code_expiry) < new Date()) {
+      return res.status(400).json({ error: 'El código ha expirado' });
+    }
+
+    res.json({ success: true, message: 'Código válido' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint para cambiar contraseña
+app.post('/api/reset-password', async (req, res) => {
+  const { email, code, newPassword } = req.body;
+  if (!email || !code || !newPassword) {
+    return res.status(400).json({ error: 'Email, código y nueva contraseña requeridos' });
+  }
+
+  try {
+    const result = await pool.query(
+      'SELECT reset_code, reset_code_expiry FROM usuarios WHERE email = $1',
+      [email]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Email no encontrado' });
+    }
+
+    const user = result.rows[0];
+
+    if (!user.reset_code || user.reset_code !== code) {
+      return res.status(400).json({ error: 'Código inválido' });
+    }
+
+    if (new Date(user.reset_code_expiry) < new Date()) {
+      return res.status(400).json({ error: 'El código ha expirado' });
+    }
+
+    // Hash de la nueva contraseña
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(newPassword, saltRounds);
+
+    // Actualizar contraseña y limpiar código
+    await pool.query(
+      'UPDATE usuarios SET password_hash = $1, reset_code = NULL, reset_code_expiry = NULL WHERE email = $2',
+      [passwordHash, email]
+    );
+
+    console.log('PASSWORD RESET - Contraseña actualizada para:', email);
+    res.json({ success: true, message: 'Contraseña actualizada correctamente' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Endpoint de transacciones (compra/venta)
 app.post('/api/trade', async (req, res) => {
   const { usuario_id, moneda_id, tipo, cantidad, precio_usd } = req.body;

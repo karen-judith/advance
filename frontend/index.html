@@ -444,12 +444,12 @@
             pointer-events: none;
         }
 
-        /* 3D Neon Robot Face - AdvanceBot */
+        /* 3D Neon Robot Face - Emoji expressions */
         .bot-face {
             width: 52px; height: 52px; flex-shrink: 0;
             background: linear-gradient(145deg, #1a1028 0%, #2d1b4e 50%, #1a1028 100%);
             position: relative; overflow: hidden;
-            border-radius: 12px;
+            border-radius: 14px;
             border: 2px solid rgba(168, 85, 247, 0.6);
             box-shadow:
                 0 0 15px rgba(168, 85, 247, 0.4),
@@ -457,136 +457,30 @@
                 inset 0 2px 4px rgba(34, 211, 238, 0.1),
                 0 4px 12px rgba(0, 0, 0, 0.5);
             animation: neonPulse 2s ease-in-out infinite;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 28px;
+            line-height: 1;
         }
         @keyframes neonPulse {
             0%, 100% { box-shadow: 0 0 15px rgba(168, 85, 247, 0.4), 0 0 30px rgba(168, 85, 247, 0.2), inset 0 2px 4px rgba(34, 211, 238, 0.1), 0 4px 12px rgba(0, 0, 0, 0.5); }
             50% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.6), 0 0 40px rgba(168, 85, 247, 0.3), inset 0 2px 4px rgba(34, 211, 238, 0.15), 0 4px 12px rgba(0, 0, 0, 0.5); }
         }
 
-        /* 3D Helm shape */
         .bot-face::before {
             content: ''; position: absolute;
             top: -2px; left: -2px; right: -2px; bottom: -2px;
-            border-radius: 14px;
+            border-radius: 16px;
             background: linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(34, 211, 238, 0.2), rgba(168, 85, 247, 0.3));
             z-index: -1;
         }
 
-        /* Neck/Body indicators */
-        .bot-face::after {
-            content: ''; position: absolute;
-            bottom: -8px; left: 50%; transform: translateX(-50%);
-            width: 30px; height: 8px;
-            background: linear-gradient(180deg, #1a1028, #0d0a1a);
-            border-radius: 0 0 6px 6px;
-            border: 1px solid rgba(168, 85, 247, 0.3);
-            border-top: none;
+        .bot-emoji {
+            z-index: 1;
+            animation: emojiBlink 3s ease-in-out infinite;
         }
-
-        /* Status LEDs on neck */
-        .bot-eyes {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            display: flex; flex-direction: column; gap: 6px; align-items: center;
-            width: 100%;
-        }
-
-        /* LED Eyes - horizontal visor style */
-        .bot-eye {
-            width: 18px; height: 4px; border-radius: 2px;
-            background: #facc15;
-            box-shadow:
-                0 0 8px #facc15,
-                0 0 16px rgba(250, 204, 21, 0.6),
-                0 0 24px rgba(250, 204, 21, 0.3);
-            animation: eyeBlink 3s ease-in-out infinite;
-            transition: all 0.3s ease;
-        }
-        .bot-eye:nth-child(2) {
-            animation-delay: 0.15s;
-        }
-        @keyframes eyeBlink {
-            0%, 45%, 47%, 95%, 100% { height: 4px; opacity: 1; }
-            46% { height: 1px; opacity: 0.7; }
-        }
-
-        /* LED Mouth - horizontal line */
-        .bot-mouth {
-            width: 20px; height: 3px; border-radius: 1.5px;
-            background: #facc15;
-            box-shadow:
-                0 0 6px #facc15,
-                0 0 12px rgba(250, 204, 21, 0.5);
-            transition: all 0.3s ease;
-            margin-top: 2px;
-        }
-
-        /* Status indicator LEDs on body */
-        .bot-status-leds {
-            position: absolute;
-            bottom: -6px; left: 50%; transform: translateX(-50%);
-            display: flex; gap: 4px;
-        }
-        .bot-status-led {
-            width: 4px; height: 2px; border-radius: 1px;
-            background: #22d3ee;
-            box-shadow: 0 0 4px #22d3ee;
-            animation: ledBlink 2s ease-in-out infinite;
-        }
-        .bot-status-led:nth-child(2) { animation-delay: 0.5s; }
-        .bot-status-led:nth-child(3) { animation-delay: 1s; }
-        @keyframes ledBlink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-
-        /* Thinking - eyes move side to side */
-        .bot-face.thinking .bot-eye {
-            animation: lookAround 1.2s ease-in-out infinite;
-        }
-        @keyframes lookAround {
-            0%, 100% { transform: translateX(0); width: 18px; }
-            25% { transform: translateX(-4px); width: 14px; }
-            75% { transform: translateX(4px); width: 14px; }
-        }
-        .bot-face.thinking .bot-mouth {
-            width: 16px; background: #22d3ee;
-            box-shadow: 0 0 6px #22d3ee, 0 0 12px rgba(34, 211, 238, 0.5);
-        }
-
-        /* Talking - mouth animates */
-        .bot-face.talking .bot-eye {
-            animation: none; height: 4px;
-        }
-        .bot-face.talking .bot-mouth {
-            animation: mouthTalk 0.3s ease-in-out infinite;
-            background: #facc15;
-        }
-        @keyframes mouthTalk {
-            0%, 100% { height: 3px; width: 20px; }
-            50% { height: 8px; width: 18px; border-radius: 50%; }
-        }
-
-        /* Happy - eyes curve up, mouth smiles */
-        .bot-face.happy .bot-eye {
-            animation: none; height: 4px;
-            border-radius: 0 0 4px 4px;
-        }
-        .bot-face.happy .bot-mouth {
-            width: 24px; height: 6px;
-            border-radius: 0 0 12px 12px;
-            background: #facc15;
-            box-shadow: 0 0 10px #facc15, 0 0 20px rgba(250, 204, 21, 0.6);
-        }
-
-        /* Sad - mouth frowns */
-        .bot-face.sad .bot-eye {
-            animation: none; height: 3px;
-        }
-        .bot-face.sad .bot-mouth {
-            width: 18px; height: 3px;
-            border-radius: 12px 12px 0 0;
-            background: #ef4444;
-            box-shadow: 0 0 6px #ef4444, 0 0 12px rgba(239, 68, 68, 0.5);
+        @keyframes emojiBlink {
+            0%, 42%, 44%, 96%, 100% { opacity: 1; }
+            43% { opacity: 0.3; }
         }
 
         .chat-header-info { flex: 1; position: relative; z-index: 1; }
@@ -790,16 +684,7 @@
 <div class="chat-panel" id="chat-panel">
     <div class="chat-header" id="chat-header">
         <div class="bot-face" id="bot-face">
-            <div class="bot-eyes">
-                <div class="bot-eye"></div>
-                <div class="bot-eye"></div>
-                <div class="bot-mouth"></div>
-            </div>
-            <div class="bot-status-leds">
-                <div class="bot-status-led"></div>
-                <div class="bot-status-led"></div>
-                <div class="bot-status-led"></div>
-            </div>
+            <span class="bot-emoji">😀</span>
         </div>
         <div class="chat-header-info">
             <div class="name">AdvanceBot</div>
@@ -1077,6 +962,26 @@
     let firstChatOpen = true;
     let botFace = document.getElementById('bot-face');
 
+    // Emoji expressions mapping
+    const botEmojis = {
+        default: '😀',
+        happy: '😄',
+        laugh: '🤣',
+        excited: '😆',
+        wink: '😉',
+        cool: '😎',
+        think: '🤔',
+        money: '🤑',
+        surprised: '😲',
+        greet: '👋',
+        help: '🤨'
+    };
+
+    function setEmoji(emoji) {
+        if(!botFace) botFace = document.getElementById('bot-face');
+        botFace.innerHTML = `<span class="bot-emoji">${emoji}</span>`;
+    }
+
     // Drag functionality
     function initDrag() {
         const panel = document.getElementById('chat-panel');
@@ -1129,6 +1034,63 @@
             isDragging = false;
             panel.classList.remove('dragging');
         });
+    }
+
+    function toggleChat() {
+        chatOpen = !chatOpen;
+        const panel = document.getElementById('chat-panel');
+        const fab = document.getElementById('chat-fab');
+        if(chatOpen) {
+            panel.classList.add('open');
+            fab.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            initDrag();
+            if(firstChatOpen) {
+                setEmoji(botEmojis.greet);
+                addBotMessage("¡Hola! 👋 Soy **AdvanceBot**, tu consejero de inversiones. ¿En qué puedo ayudarte?");
+                showSuggestions(defaultSuggestions);
+                setTimeout(() => setEmoji(botEmojis.default), 2000);
+                firstChatOpen = false;
+            }
+        } else {
+            panel.classList.remove('open');
+            fab.innerHTML = '<i class="fa-solid fa-robot"></i>';
+        }
+    }
+
+    function addBotMessage(text) {
+        const container = document.getElementById('chat-messages');
+        const msg = document.createElement('div');
+        msg.className = 'chat-msg bot';
+        msg.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+        container.appendChild(msg);
+        container.scrollTop = container.scrollHeight;
+        setTimeout(() => setEmoji(botEmojis.default), 3000);
+    }
+
+    function addUserMessage(text) {
+        const container = document.getElementById('chat-messages');
+        const msg = document.createElement('div');
+        msg.className = 'chat-msg user';
+        msg.textContent = text;
+        container.appendChild(msg);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function showTyping() {
+        setEmoji(botEmojis.think);
+        const container = document.getElementById('chat-messages');
+        const typing = document.createElement('div');
+        typing.className = 'chat-msg bot';
+        typing.id = 'typing-indicator';
+        typing.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+        container.appendChild(typing);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function hideTyping() {
+        const t = document.getElementById('typing-indicator');
+        if(t) t.remove();
+        setEmoji(botEmojis.talk);
     }
 
     function setFace(state) {
@@ -1252,25 +1214,80 @@
     function getBotResponse(text) {
         const lower = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-        if(lower.includes('invertir') || lower.includes('inversion') || lower.includes('consejo') || lower.includes('recomienda')) return chatResponses.invertir;
-        if(lower.includes('comprar') || lower.includes('buy') || lower.includes('adquirir')) return chatResponses.comprar;
-        if(lower.includes('vender') || lower.includes('sell') || lower.includes('venta')) return chatResponses.vender;
-        if(lower.includes('swap') || lower.includes('intercambiar') || lower.includes('cambiar')) return chatResponses.swap;
-        if(lower.includes('futuro') || lower.includes('apalancamiento') || lower.includes('long') || lower.includes('short')) return chatResponses.futuros;
-        if(lower.includes('portafolio') || lower.includes('billetera') || lower.includes('wallet')) return chatResponses.portafolio;
-        if(lower.includes('precio') || lower.includes('cuanto') || lower.includes('valor') || lower.includes('cotiza')) return chatResponses.precio;
-        if(lower.includes('registro') || lower.includes('registrar') || lower.includes('crear cuenta')) return chatResponses.registro;
-        if(lower.includes('login') || lower.includes('iniciar') || lower.includes('entrar') || lower.includes('sesion')) return chatResponses.login;
-        if(lower.includes('seguridad') || lower.includes('seguro') || lower.includes('proteger') || lower.includes('privacidad')) return chatResponses.seguridad;
-        if(lower.includes('saldo') || lower.includes('balance') || lower.includes('dinero') || lower.includes('usd')) return chatResponses.saldo;
-        if(lower.includes('bitcoin') || lower.includes('btc')) return chatResponses.bitcoin;
-        if(lower.includes('ethereum') || lower.includes('eth')) return chatResponses.ethereum;
-        if(lower.includes('cuando') || lower.includes('momento') || lower.includes('mejor hora') || lower.includes('indicador')) return chatResponses.momento;
-        if(lower.includes('riesgo') || lower.includes('peligro') || lower.includes('perder') || lower.includes('cuidado')) return chatResponses.riesgo;
-        if(lower.includes('hola') || lower.includes('hey') || lower.includes('buenas') || lower.includes('hi')) return chatResponses.hola;
-        if(lower.includes('gracias') || lower.includes('thank') || lower.includes('genial')) return chatResponses.gracias;
-        if(lower.includes('ayuda') || lower.includes('help') || lower.includes('que puedes') || lower.includes('funciones')) return chatResponses.ayuda;
+        if(lower.includes('invertir') || lower.includes('inversion') || lower.includes('consejo') || lower.includes('recomienda')) {
+            setEmoji(botEmojis.excited);
+            return chatResponses.invertir;
+        }
+        if(lower.includes('comprar') || lower.includes('buy') || lower.includes('adquirir')) {
+            setEmoji(botEmojis.happy);
+            return chatResponses.comprar;
+        }
+        if(lower.includes('vender') || lower.includes('sell') || lower.includes('venta')) {
+            setEmoji(botEmojis.think);
+            return chatResponses.vender;
+        }
+        if(lower.includes('swap') || lower.includes('intercambiar') || lower.includes('cambiar')) {
+            setEmoji(botEmojis.cool);
+            return chatResponses.swap;
+        }
+        if(lower.includes('futuro') || lower.includes('apalancamiento') || lower.includes('long') || lower.includes('short')) {
+            setEmoji(botEmojis.surprised);
+            return chatResponses.futuros;
+        }
+        if(lower.includes('portafolio') || lower.includes('billetera') || lower.includes('wallet')) {
+            setEmoji(botEmojis.money);
+            return chatResponses.portafolio;
+        }
+        if(lower.includes('precio') || lower.includes('cuanto') || lower.includes('valor') || lower.includes('cotiza')) {
+            setEmoji(botEmojis.surprised);
+            return chatResponses.precio;
+        }
+        if(lower.includes('registro') || lower.includes('registrar') || lower.includes('crear cuenta')) {
+            setEmoji(botEmojis.greet);
+            return chatResponses.registro;
+        }
+        if(lower.includes('login') || lower.includes('iniciar') || lower.includes('entrar') || lower.includes('sesion')) {
+            setEmoji(botEmojis.wink);
+            return chatResponses.login;
+        }
+        if(lower.includes('seguridad') || lower.includes('seguro') || lower.includes('proteger') || lower.includes('privacidad')) {
+            setEmoji(botEmojis.cool);
+            return chatResponses.seguridad;
+        }
+        if(lower.includes('saldo') || lower.includes('balance') || lower.includes('dinero') || lower.includes('usd')) {
+            setEmoji(botEmojis.money);
+            return chatResponses.saldo;
+        }
+        if(lower.includes('bitcoin') || lower.includes('btc')) {
+            setEmoji(botEmojis.surprised);
+            return chatResponses.bitcoin;
+        }
+        if(lower.includes('ethereum') || lower.includes('eth')) {
+            setEmoji(botEmojis.cool);
+            return chatResponses.ethereum;
+        }
+        if(lower.includes('cuando') || lower.includes('momento') || lower.includes('mejor hora') || lower.includes('indicador')) {
+            setEmoji(botEmojis.think);
+            return chatResponses.momento;
+        }
+        if(lower.includes('riesgo') || lower.includes('peligro') || lower.includes('perder') || lower.includes('cuidado')) {
+            setEmoji(botEmojis.surprised);
+            return chatResponses.riesgo;
+        }
+        if(lower.includes('hola') || lower.includes('hey') || lower.includes('buenas') || lower.includes('hi')) {
+            setEmoji(botEmojis.greet);
+            return chatResponses.hola;
+        }
+        if(lower.includes('gracias') || lower.includes('thank') || lower.includes('genial')) {
+            setEmoji(botEmojis.laugh);
+            return chatResponses.gracias;
+        }
+        if(lower.includes('ayuda') || lower.includes('help') || lower.includes('que puedes') || lower.includes('funciones')) {
+            setEmoji(botEmojis.help);
+            return chatResponses.ayuda;
+        }
 
+        setEmoji(botEmojis.think);
         return "🤔 No estoy seguro de entender eso. ¿Puedes preguntarme sobre:\n\n• 📊 Consejos de inversión\n• 💰 Cómo comprar o vender\n• 🔄 Swap y Futuros\n• 📈 Precios actuales\n• 🔐 Seguridad\n\n¡Escribe 'ayuda' para ver todo lo que puedo hacer!";
     }
 

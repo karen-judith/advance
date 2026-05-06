@@ -674,41 +674,114 @@ app.post('/api/payment/confirm', async (req, res) => {
   }
 });
 
-// Webhook de MercadoPago
+// Webhook de MercadoPago - Guarda TODO en la BD
 app.post('/api/payment/webhook', async (req, res) => {
   const { type, data } = req.body;
   
   if (type === 'payment') {
     const paymentId = data.id;
     try {
+      // Verificar si ya fue procesado
+      const existing = await pool.query('SELECT id FROM mercadopago_payments WHERE mp_payment_id = $1', [paymentId]);
+      if (existing.rows.length > 0) {
+        console.log('PAGO YA PROCESADO - MP ID:', paymentId);
+        return res.sendStatus(200);
+      }
+      
       const payment = await mpPayment.get({ id: paymentId });
       
-      if (payment.status === 'approved') {
-        const amount = payment.transaction_amount;
-        const externalRef = payment.id;
-        const payerEmail = payment.payer?.email;
+      const amountCop = payment.transaction_amount;
+      const mpStatus = payment.status;
+      const mpStatusDetail = payment.status_detail;
+      const mpMethod = payment.payment_method_id;
+      const mpIssuer = payment.issuer_id;
+      const mpInstallments = payment.installments;
+      const mpFee = payment.transaction_details?.total_paid_amount - payment.transaction_details?.net_received_amount;
+      const mpNetAmount = payment.transaction_details?.net_received_amount;
+      const payerEmail = payment.payer?.email;
+      const payerName = payment.payer?.name;
+      const payerFirstName = payment.payer?.first_name;
+      const payerLastName = payment.payer?.last_name;
+      const cardHolder = payment.card?.cardholder?.name;
+      const bankName = payment.bank_info?.collector?.name;
+      const mpDateApproved = payment.date_approved;
+      const mpDateCreated = payment.date_created;
+      const mpCurrency = payment.currency_id;
+      const preferenceId = payment.preference_id;
+      
+      // Buscar usuario por email del payer
+      const userResult = await pool.query('SELECT id, nombre, email FROM usuarios WHERE email = $1', [payerEmail]);
+      
+      if (userResult.rows.length > 0) {
+        const userId = userResult.rows[0].id;
+        const amountUsd = amountCop / 4000; // Conversión COP a USD
+        const exchangeRate = 4000;
         
-        // Buscar usuario por email
-        const userResult = await pool.query('SELECT id FROM usuarios WHERE email = $1', [payerEmail]);
-        if (userResult.rows.length > 0) {
-          const userId = userResult.rows[0].id;
-          const amountUsd = amount / 4000; // Conversión aproximada COP a USD
-          
+        // Guardar en mercadopago_payments con TODOS los detalles
+        await pool.query(
+          `INSERT INTO mercadopago_payments (
+            usuario_id, mp_payment_id, amount_cop, amount_cop_encrypted, amount_usd, amount_usd_encrypted,
+            exchange_rate, payment_method, payer_email, payer_name, payer_first_name, payer_last_name,
+            mp_status, mp_status_detail, mp_currency, mp_installments, mp_net_amount, mp_fee,
+            mp_date_approved, mp_date_created, mp_external_reference, mp_card_holder, mp_bank_name,
+            mp_issuer, mp_preference_id, mp_notification_url, flow_type
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)`,
+          [
+            userId, paymentId, amountCop, encryptValue(amountCop), amountUsd, encryptValue(amountUsd),
+            exchangeRate, mpMethod, payerEmail, payerName, payerFirstName, payerLastName,
+            mpStatus, mpStatusDetail, mpCurrency, mpInstallments || 0, mpNetAmount, mpFee,
+            mpDateApproved, mpDateCreated, paymentId, cardHolder, bankName,
+            mpIssuer, preferenceId, req.body?.notification_url, 'deposit'
+          ]
+        );
+        
+        // Si el pago fue aprobado, actualizar saldo y deposit_log
+        if (mpStatus === 'approved') {
           await pool.query('BEGIN');
+          
+          // Actualizar saldo del usuario
           await pool.query('UPDATE usuarios SET saldo_usd = saldo_usd + $1 WHERE id = $2', [amountUsd, userId]);
+          
+          // Registrar en deposit_log
           await pool.query(
             `INSERT INTO deposit_log (usuario_id, amount, amount_encrypted, method, reference, status)
-             VALUES ($1, $2, $3, 'mercadopago', $4, 'completed')`,
-            [userId, amountUsd, encryptValue(amountUsd), `MP-${externalRef}`]
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [userId, amountUsd, encryptValue(amountUsd), `mercadopago_${mpMethod}`, `MP-${paymentId}`, 'completed']
           );
+          
+          // Crear snapshot de saldo
+          const newSaldoResult = await pool.query('SELECT saldo_usd FROM usuarios WHERE id = $1', [userId]);
+          const newSaldo = parseFloat(newSaldoResult.rows[0].saldo_usd);
           await pool.query(
             `INSERT INTO balance_snapshots (usuario_id, saldo_usd, saldo_encrypted)
-             SELECT $1, saldo_usd, encryptValue(saldo_usd) FROM usuarios WHERE id = $1`,
-            [userId]
+             VALUES ($1, $2, $3)`,
+            [userId, newSaldo, encryptValue(newSaldo)]
           );
+          
           await pool.query('COMMIT');
-          console.log('DEPOSITO APROBADO - Usuario:', userId, 'Monto COP:', amount, 'USD:', amountUsd);
+          console.log('DEPOSITO APROBADO - Usuario:', userId, 'COP:', amountCop, 'USD:', amountUsd, 'Método:', mpMethod);
+        } else {
+          console.log('PAGO PENDIENTE/FALLIDO - MP ID:', paymentId, 'Estado:', mpStatus, 'Detalle:', mpStatusDetail);
         }
+      } else {
+        // Pago sin usuario registrado - guardar de todos modos para auditoría
+        console.log('PAGO SIN USUARIO - Email:', payerEmail, 'Monto:', amountCop);
+        await pool.query(
+          `INSERT INTO mercadopago_payments (
+            usuario_id, mp_payment_id, amount_cop, amount_cop_encrypted, amount_usd, amount_usd_encrypted,
+            exchange_rate, payment_method, payer_email, payer_name, payer_first_name, payer_last_name,
+            mp_status, mp_status_detail, mp_currency, mp_installments, mp_net_amount, mp_fee,
+            mp_date_approved, mp_date_created, mp_external_reference, mp_card_holder, mp_bank_name,
+            mp_issuer, mp_preference_id, mp_notification_url, flow_type
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)`,
+          [
+            null, paymentId, amountCop, encryptValue(amountCop), amountCop / 4000, encryptValue(amountCop / 4000),
+            4000, mpMethod, payerEmail, payerName, payerFirstName, payerLastName,
+            mpStatus, mpStatusDetail, mpCurrency, mpInstallments || 0, mpNetAmount, mpFee,
+            mpDateApproved, mpDateCreated, paymentId, cardHolder, bankName,
+            mpIssuer, preferenceId, req.body?.notification_url, 'deposit'
+          ]
+        );
       }
     } catch (err) {
       console.error('Webhook error:', err);
@@ -806,7 +879,7 @@ app.get('/api/user/:id/transaction-history', async (req, res) => {
   const { id } = req.params;
   
   try {
-    const [deposits, withdrawals, trades] = await Promise.all([
+    const [deposits, withdrawals, trades, mpPayments] = await Promise.all([
       pool.query(
         `SELECT 'deposit' as type, id, amount as amount_usd, method, reference, status, created_at
          FROM deposit_log WHERE usuario_id = $1 ORDER BY created_at DESC`,
@@ -823,13 +896,90 @@ app.get('/api/user/:id/transaction-history', async (req, res) => {
          LEFT JOIN monedas m ON t.moneda_id = m.id
          WHERE t.usuario_id = $1 ORDER BY t.created_at DESC`,
         [id]
+      ),
+      pool.query(
+        `SELECT id, mp_payment_id, amount_cop, amount_usd, payment_method, mp_status, mp_status_detail,
+                payer_email, payer_name, mp_fee, mp_net_amount, mp_date_approved, mp_date_created,
+                mp_card_holder, mp_bank_name, mp_issuer, mp_installments, flow_type, created_at
+         FROM mercadopago_payments
+         WHERE usuario_id = $1
+         ORDER BY created_at DESC`,
+        [id]
       )
     ]);
     
     res.json({
       deposits: deposits.rows,
       withdrawals: withdrawals.rows,
-      trades: trades.rows
+      trades: trades.rows,
+      mercadopago_payments: mpPayments.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint dedicado: historial completo de MercadoPago
+app.get('/api/user/:id/mercadopago-history', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const result = await pool.query(
+      `SELECT mp.id, mp.mp_payment_id, mp.amount_cop, mp.amount_usd, mp.exchange_rate,
+              mp.payment_method, mp.mp_status, mp.mp_status_detail, mp.mp_currency,
+              mp.mp_fee, mp.mp_net_amount, mp.mp_installments, mp.mp_date_approved,
+              mp.mp_date_created, mp.mp_card_holder, mp.mp_bank_name, mp.mp_issuer,
+              mp.payer_email, mp.payer_name, mp.payer_first_name, mp.payer_last_name,
+              mp.flow_type, mp.created_at
+       FROM mercadopago_payments mp
+       WHERE mp.usuario_id = $1
+       ORDER BY mp.created_at DESC`,
+      [id]
+    );
+    
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Resumen financiero del usuario (todo el dinero que entró y salió)
+app.get('/api/user/:id/financial-summary', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const [currentSaldo, totalDeposits, totalWithdrawals, totalTrades, mpSummary] = await Promise.all([
+      pool.query('SELECT saldo_usd FROM usuarios WHERE id = $1', [id]),
+      pool.query('SELECT COALESCE(SUM(amount), 0) as total FROM deposit_log WHERE usuario_id = $1', [id]),
+      pool.query('SELECT COALESCE(SUM(amount), 0) as total FROM withdrawal_log WHERE usuario_id = $1 AND status IN (\'completed\', \'processing\')', [id]),
+      pool.query(`SELECT 
+        COALESCE(SUM(CASE WHEN tipo = 'compra' THEN total_usd ELSE 0 END), 0) as total_compras,
+        COALESCE(SUM(CASE WHEN tipo = 'venta' THEN total_usd ELSE 0 END), 0) as total_ventas
+        FROM transacciones WHERE usuario_id = $1`, [id]),
+      pool.query(`SELECT 
+        COUNT(*) as total_payments,
+        COALESCE(SUM(amount_cop), 0) as total_cop,
+        COALESCE(SUM(amount_usd), 0) as total_usd,
+        COALESCE(SUM(mp_fee), 0) as total_fees,
+        COALESCE(SUM(mp_net_amount), 0) as total_net
+        FROM mercadopago_payments WHERE usuario_id = $1 AND mp_status = 'approved'`, [id])
+    ]);
+    
+    res.json({
+      current_balance: parseFloat(currentSaldo.rows[0]?.saldo_usd || 0),
+      total_deposits: parseFloat(totalDeposits.rows[0].total),
+      total_withdrawals: parseFloat(totalWithdrawals.rows[0].total),
+      total_trades: {
+        compras: parseFloat(totalTrades.rows[0].total_compras),
+        ventas: parseFloat(totalTrades.rows[0].total_ventas)
+      },
+      mercadopago: {
+        total_payments: parseInt(mpSummary.rows[0].total_payments),
+        total_cop: parseFloat(mpSummary.rows[0].total_cop),
+        total_usd: parseFloat(mpSummary.rows[0].total_usd),
+        total_fees: parseFloat(mpSummary.rows[0].total_fees),
+        total_net: parseFloat(mpSummary.rows[0].total_net)
+      }
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

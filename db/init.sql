@@ -59,6 +59,38 @@ CREATE TABLE IF NOT EXISTS deposit_log (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS mercadopago_payments (
+  id SERIAL PRIMARY KEY,
+  usuario_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,
+  mp_payment_id BIGINT UNIQUE,
+  amount_cop DECIMAL(18, 2) NOT NULL,
+  amount_cop_encrypted TEXT NOT NULL,
+  amount_usd DECIMAL(18, 8) NOT NULL,
+  amount_usd_encrypted TEXT NOT NULL,
+  exchange_rate DECIMAL(18, 4),
+  payment_method VARCHAR(50),
+  payer_email VARCHAR(100),
+  payer_name VARCHAR(100),
+  payer_first_name VARCHAR(50),
+  payer_last_name VARCHAR(50),
+  mp_status VARCHAR(30),
+  mp_status_detail VARCHAR(100),
+  mp_currency VARCHAR(10),
+  mp_installments INTEGER,
+  mp_net_amount DECIMAL(18, 2),
+  mp_fee DECIMAL(18, 2),
+  mp_date_approved TIMESTAMP,
+  mp_date_created TIMESTAMP,
+  mp_external_reference TEXT,
+  mp_card_holder VARCHAR(100),
+  mp_bank_name VARCHAR(100),
+  mp_issuer VARCHAR(100),
+  mp_preference_id VARCHAR(100),
+  mp_notification_url TEXT,
+  flow_type VARCHAR(20) DEFAULT 'deposit',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS trade_audit (
   id SERIAL PRIMARY KEY,
   usuario_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,

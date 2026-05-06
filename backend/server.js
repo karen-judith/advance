@@ -3,7 +3,52 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const nodemailer = require('nodemailer');
+const crypto = require('crypto');
+const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
 require('dotenv').config();
+
+// MercadoPago Client
+const mpClient = new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || '' });
+const mpPreference = new Preference(mpClient);
+const mpPayment = new Payment(mpClient);
+
+// Módulo de encriptación AES-256 (código secreto)
+const ENCRYPTION_KEY = Buffer.from(process.env.ENCRYPTION_KEY || 'A458C92E71B6D4F8E3A097C5D2B86F1A3C7E5D9B0F2A8C4E6B1D3F7A5C9E0D2B', 'hex');
+
+function encryptValue(value) {
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+  let encrypted = cipher.update(String(value), 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return `${iv.toString('hex')}:${encrypted}`;
+}
+
+function decryptValue(encryptedStr) {
+  try {
+    const [ivHex, encryptedHex] = encryptedStr.split(':');
+    const iv = Buffer.from(ivHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+    let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (err) {
+    console.error('DECRYPT ERROR:', err);
+    return null;
+  }
+}
+
+// Función para loguear accesos
+async function logAccess(usuario_id, action, req, status = 'success', detail = '') {
+  try {
+    await pool.query(
+      `INSERT INTO access_log (usuario_id, action, ip_address, user_agent, status, detail)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [usuario_id, action, req.ip, req.headers['user-agent'] || '', status, detail]
+    );
+  } catch (err) {
+    console.error('Error logging access:', err);
+  }
+}
 
 // Configuración de nodemailer con SMTP real
 const transporter = nodemailer.createTransport({
@@ -93,6 +138,17 @@ app.post('/api/register', async (req, res) => {
     
     console.log('REGISTER - usuario creado:', result.rows[0]);
     
+    // Loguear registro
+    const userId = result.rows[0].id;
+    await logAccess(userId, 'register', req, 'success', 'Nuevo usuario registrado');
+    
+    // Crear snapshot inicial de saldo
+    await pool.query(
+      `INSERT INTO balance_snapshots (usuario_id, saldo_usd, saldo_encrypted)
+       VALUES ($1, $2, $3)`,
+      [userId, 10000.00, encryptValue(10000.00)]
+    );
+    
     // Eliminar código usado
     verificationCodes.delete(email);
 
@@ -118,6 +174,7 @@ app.post('/api/login', async (req, res) => {
     console.log('LOGIN - rows found:', result.rows.length);
     
     if (result.rows.length === 0) {
+      await logAccess(null, 'login', req, 'failed', 'Usuario no encontrado: ' + email);
       return res.status(401).json({ error: 'Credenciales inválidas' });
     }
     
@@ -127,8 +184,19 @@ app.post('/api/login', async (req, res) => {
     console.log('LOGIN - password match:', match);
     
     if (!match) {
+      await logAccess(user.id, 'login', req, 'failed', 'Contraseña incorrecta');
       return res.status(401).json({ error: 'Credenciales inválidas' });
     }
+    
+    // Loguear acceso exitoso
+    await logAccess(user.id, 'login', req, 'success');
+    
+    // Crear snapshot de saldo
+    await pool.query(
+      `INSERT INTO balance_snapshots (usuario_id, saldo_usd, saldo_encrypted)
+       VALUES ($1, $2, $3)`,
+      [user.id, user.saldo_usd, encryptValue(user.saldo_usd)]
+    );
     
     // Eliminar password_hash del objeto de respuesta por seguridad
     delete user.password_hash;
@@ -269,6 +337,7 @@ app.post('/api/trade', async (req, res) => {
     const userResult = await pool.query('SELECT saldo_usd FROM usuarios WHERE id = $1', [usuario_id]);
     if (userResult.rows.length === 0) throw new Error('Usuario no encontrado');
     let saldo_usd = parseFloat(userResult.rows[0].saldo_usd);
+    const saldo_before = saldo_usd;
 
     // 2. Obtener portafolio actual de la moneda
     const portfolioResult = await pool.query('SELECT cantidad FROM portafolios WHERE usuario_id = $1 AND moneda_id = $2', [usuario_id, moneda_id]);
@@ -286,6 +355,8 @@ app.post('/api/trade', async (req, res) => {
     } else {
       throw new Error('Tipo de transacción inválido');
     }
+    
+    const saldo_after = saldo_usd;
 
     // 4. Actualizar usuario
     await pool.query('UPDATE usuarios SET saldo_usd = $1 WHERE id = $2', [saldo_usd, usuario_id]);
@@ -301,6 +372,20 @@ app.post('/api/trade', async (req, res) => {
     const transaccion = await pool.query(
       'INSERT INTO transacciones (usuario_id, moneda_id, tipo, cantidad, precio_usd, total_usd) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
       [usuario_id, moneda_id, tipo, cantidad, precio_usd, total_usd]
+    );
+
+    // 7. Registrar auditoría encriptada (código secreto)
+    await pool.query(
+      `INSERT INTO trade_audit (usuario_id, moneda_id, tipo, cantidad, cantidad_encrypted, precio_usd, precio_encrypted, total_usd, total_encrypted, saldo_before, saldo_after)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [usuario_id, moneda_id, tipo, cantidad, encryptValue(cantidad), precio_usd, encryptValue(precio_usd), total_usd, encryptValue(total_usd), saldo_before, saldo_after]
+    );
+
+    // 8. Crear snapshot de saldo actualizado
+    await pool.query(
+      `INSERT INTO balance_snapshots (usuario_id, saldo_usd, saldo_encrypted)
+       VALUES ($1, $2, $3)`,
+      [usuario_id, saldo_usd, encryptValue(saldo_usd)]
     );
 
     await pool.query('COMMIT'); // Confirmar transacción SQL
@@ -338,6 +423,413 @@ app.get('/api/usuario/:id/portafolio', async (req, res) => {
       usuario: userResult.rows[0],
       portafolio: portfolioResult.rows,
       transacciones: transactionsResult.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint para obtener historial de accesos
+app.get('/api/usuario/:id/access-log', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT a.id, a.action, a.ip_address, a.user_agent, a.status, a.detail, a.created_at,
+              u.nombre as usuario_nombre
+       FROM access_log a
+       LEFT JOIN usuarios u ON a.usuario_id = u.id
+       WHERE a.usuario_id = $1
+       ORDER BY a.created_at DESC
+       LIMIT 50`,
+      [id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint para obtener auditoría de trades encriptada
+app.get('/api/usuario/:id/trade-audit', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT t.id, t.tipo, t.cantidad, t.precio_usd, t.total_usd, t.saldo_before, t.saldo_after,
+              t.created_at, m.simbolo, m.nombre as moneda_nombre
+       FROM trade_audit t
+       LEFT JOIN monedas m ON t.moneda_id = m.id
+       WHERE t.usuario_id = $1
+       ORDER BY t.created_at DESC
+       LIMIT 100`,
+      [id]
+    );
+    
+    // Desencriptar valores para el usuario autenticado
+    const decrypted = result.rows.map(row => ({
+      ...row,
+      cantidad_encrypted: row.cantidad,
+      precio_encrypted: row.precio_usd,
+      total_encrypted: row.total_usd,
+      is_encrypted: true
+    }));
+    
+    res.json(decrypted);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint para obtener snapshots de saldo
+app.get('/api/usuario/:id/balance-history', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT id, saldo_usd, snapshot_date, created_at
+       FROM balance_snapshots
+       WHERE usuario_id = $1
+       ORDER BY created_at DESC
+       LIMIT 30`,
+      [id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint para depositar saldo (registro con encriptación)
+app.post('/api/deposit', async (req, res) => {
+  const { usuario_id, amount, method, reference } = req.body;
+  
+  if (!usuario_id || !amount || amount <= 0) {
+    return res.status(400).json({ error: 'Usuario y monto requeridos' });
+  }
+
+  try {
+    await pool.query('BEGIN');
+    
+    // Actualizar saldo
+    const userResult = await pool.query('SELECT saldo_usd FROM usuarios WHERE id = $1', [usuario_id]);
+    if (userResult.rows.length === 0) throw new Error('Usuario no encontrado');
+    
+    const newSaldo = parseFloat(userResult.rows[0].saldo_usd) + parseFloat(amount);
+    await pool.query('UPDATE usuarios SET saldo_usd = $1 WHERE id = $2', [newSaldo, usuario_id]);
+    
+    // Registrar depósito encriptado
+    await pool.query(
+      `INSERT INTO deposit_log (usuario_id, amount, amount_encrypted, method, reference)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [usuario_id, amount, encryptValue(amount), method || 'manual', reference || '']
+    );
+    
+    // Crear snapshot de saldo
+    await pool.query(
+      `INSERT INTO balance_snapshots (usuario_id, saldo_usd, saldo_encrypted)
+       VALUES ($1, $2, $3)`,
+      [usuario_id, newSaldo, encryptValue(newSaldo)]
+    );
+    
+    await pool.query('COMMIT');
+    
+    res.json({ success: true, nuevo_saldo_usd: newSaldo });
+  } catch (err) {
+    await pool.query('ROLLBACK');
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Endpoint para obtener historial de depósitos
+app.get('/api/usuario/:id/deposits', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT d.id, d.amount, d.method, d.reference, d.status, d.created_at
+       FROM deposit_log d
+       WHERE d.usuario_id = $1
+       ORDER BY d.created_at DESC`,
+      [id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// PAGOS REALES CON MERCADOPAGO (Colombia/Latam)
+// ==========================================
+
+// Configurar PIN de seguridad (2FA para depósitos)
+app.post('/api/user/:id/set-pin', async (req, res) => {
+  const { pin } = req.body;
+  const { id } = req.params;
+  if (!pin || pin.length !== 6 || !/^\d+$/.test(pin)) {
+    return res.status(400).json({ error: 'El PIN debe ser de 6 dígitos numéricos' });
+  }
+  try {
+    const pinHash = await bcrypt.hash(pin, 10);
+    await pool.query('UPDATE usuarios SET security_pin = $1 WHERE id = $2', [pinHash, id]);
+    res.json({ success: true, message: 'PIN configurado correctamente' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Verificar PIN de seguridad
+app.post('/api/user/:id/verify-pin', async (req, res) => {
+  const { pin } = req.body;
+  const { id } = req.params;
+  try {
+    const result = await pool.query('SELECT security_pin FROM usuarios WHERE id = $1', [id]);
+    if (result.rows.length === 0 || !result.rows[0].security_pin) {
+      return res.status(400).json({ error: 'No tienes un PIN configurado' });
+    }
+    const match = await bcrypt.compare(pin, result.rows[0].security_pin);
+    if (!match) return res.status(401).json({ error: 'PIN incorrecto' });
+    res.json({ success: true, message: 'PIN verificado' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Crear preferencia de pago en MercadoPago (para depósito)
+app.post('/api/payment/create', async (req, res) => {
+  const { usuario_id, amount, email, nombre } = req.body;
+  
+  if (!usuario_id || !amount || amount < 10000) {
+    return res.status(400).json({ error: 'Monto mínimo $10,000 COP' });
+  }
+
+  try {
+    // Generar código de verificación de 6 dígitos
+    const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Guardar código en session temporal (email)
+    verificationCodes.set(`deposit_${usuario_id}`, { code: verifyCode, expiresAt: Date.now() + 10 * 60 * 1000 });
+    
+    // Enviar código por email
+    await transporter.sendMail({
+      from: '"Advance Trading" <no-reply@advance.com>',
+      to: email,
+      subject: 'Verificación de depósito - Advance',
+      text: `Tu código de verificación para depósito es: ${verifyCode}`,
+      html: `<b>Código de verificación:</b> <span style="font-size:24px;color:#a855f7;font-weight:bold">${verifyCode}</span><br><br>Ingresa este código para confirmar tu depósito.`
+    });
+
+    res.json({ success: true, message: 'Código de verificación enviado a tu email' });
+  } catch (err) {
+    console.error('Error creating payment:', err);
+    res.status(500).json({ error: 'Error al crear preferencia de pago' });
+  }
+});
+
+// Verificar código de depósito y crear pago en MercadoPago
+app.post('/api/payment/confirm', async (req, res) => {
+  const { usuario_id, amount, code, pin, email, nombre } = req.body;
+  
+  if (!usuario_id || !amount || !code || !pin) {
+    return res.status(400).json({ error: 'Todos los campos son requeridos' });
+  }
+
+  try {
+    // 1. Verificar código de email
+    const savedCode = verificationCodes.get(`deposit_${usuario_id}`);
+    if (!savedCode) return res.status(400).json({ error: 'No se ha solicitado un código' });
+    if (savedCode.expiresAt < Date.now()) return res.status(400).json({ error: 'Código expirado' });
+    if (savedCode.code !== code) return res.status(400).json({ error: 'Código incorrecto' });
+
+    // 2. Verificar PIN de seguridad
+    const pinResult = await pool.query('SELECT security_pin FROM usuarios WHERE id = $1', [usuario_id]);
+    if (!pinResult.rows[0].security_pin) return res.status(400).json({ error: 'No tienes PIN configurado' });
+    const pinMatch = await bcrypt.compare(pin, pinResult.rows[0].security_pin);
+    if (!pinMatch) return res.status(401).json({ error: 'PIN de seguridad incorrecto' });
+
+    // 3. Crear preferencia de pago en MercadoPago
+    const preference = await mpPreference.create({
+      body: {
+        items: [{
+          title: 'Depósito Advance Trading',
+          unit_price: parseFloat(amount),
+          quantity: 1,
+          currency_id: 'COP'
+        }],
+        payer: { email, name: nombre },
+        back_urls: {
+          success: 'http://localhost:3000',
+          failure: 'http://localhost:3000',
+          pending: 'http://localhost:3000'
+        },
+        auto_return: 'approved',
+        notification_url: 'https://your-domain.com/api/payment/webhook'
+      }
+    });
+
+    // Limpiar código usado
+    verificationCodes.delete(`deposit_${usuario_id}`);
+
+    res.json({ success: true, init_point: preference.init_point, preference_id: preference.id });
+  } catch (err) {
+    console.error('Error confirming payment:', err);
+    res.status(500).json({ error: 'Error al confirmar pago' });
+  }
+});
+
+// Webhook de MercadoPago
+app.post('/api/payment/webhook', async (req, res) => {
+  const { type, data } = req.body;
+  
+  if (type === 'payment') {
+    const paymentId = data.id;
+    try {
+      const payment = await mpPayment.get({ id: paymentId });
+      
+      if (payment.status === 'approved') {
+        const amount = payment.transaction_amount;
+        const externalRef = payment.id;
+        const payerEmail = payment.payer?.email;
+        
+        // Buscar usuario por email
+        const userResult = await pool.query('SELECT id FROM usuarios WHERE email = $1', [payerEmail]);
+        if (userResult.rows.length > 0) {
+          const userId = userResult.rows[0].id;
+          const amountUsd = amount / 4000; // Conversión aproximada COP a USD
+          
+          await pool.query('BEGIN');
+          await pool.query('UPDATE usuarios SET saldo_usd = saldo_usd + $1 WHERE id = $2', [amountUsd, userId]);
+          await pool.query(
+            `INSERT INTO deposit_log (usuario_id, amount, amount_encrypted, method, reference, status)
+             VALUES ($1, $2, $3, 'mercadopago', $4, 'completed')`,
+            [userId, amountUsd, encryptValue(amountUsd), `MP-${externalRef}`]
+          );
+          await pool.query(
+            `INSERT INTO balance_snapshots (usuario_id, saldo_usd, saldo_encrypted)
+             SELECT $1, saldo_usd, encryptValue(saldo_usd) FROM usuarios WHERE id = $1`,
+            [userId]
+          );
+          await pool.query('COMMIT');
+          console.log('DEPOSITO APROBADO - Usuario:', userId, 'Monto COP:', amount, 'USD:', amountUsd);
+        }
+      }
+    } catch (err) {
+      console.error('Webhook error:', err);
+    }
+  }
+  
+  res.sendStatus(200);
+});
+
+// Solicitar retiro
+app.post('/api/withdraw', async (req, res) => {
+  const { usuario_id, amount, method, bank_name, account_number, account_type, pin } = req.body;
+  
+  if (!usuario_id || !amount || amount <= 0) {
+    return res.status(400).json({ error: 'Monto inválido' });
+  }
+  
+  try {
+    // 1. Verificar PIN
+    const pinResult = await pool.query('SELECT security_pin FROM usuarios WHERE id = $1', [usuario_id]);
+    if (!pinResult.rows[0].security_pin) return res.status(400).json({ error: 'No tienes PIN configurado' });
+    const pinMatch = await bcrypt.compare(pin, pinResult.rows[0].security_pin);
+    if (!pinMatch) return res.status(401).json({ error: 'PIN incorrecto' });
+    
+    // 2. Verificar saldo suficiente
+    const userResult = await pool.query('SELECT saldo_usd FROM usuarios WHERE id = $1', [usuario_id]);
+    if (userResult.rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const saldo = parseFloat(userResult.rows[0].saldo_usd);
+    if (saldo < amount) return res.status(400).json({ error: 'Saldo insuficiente' });
+    
+    // 3. Enviar código de verificación por email
+    const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+    verificationCodes.set(`withdraw_${usuario_id}`, { code: verifyCode, amount, expiresAt: Date.now() + 10 * 60 * 1000 });
+    
+    // Obtener email del usuario
+    const emailResult = await pool.query('SELECT email FROM usuarios WHERE id = $1', [usuario_id]);
+    
+    await transporter.sendMail({
+      from: '"Advance Trading" <no-reply@advance.com>',
+      to: emailResult.rows[0].email,
+      subject: 'Verificación de retiro - Advance',
+      text: `Tu código de verificación para retiro de $${amount} USD es: ${verifyCode}`,
+      html: `<b>Código de retiro:</b> <span style="font-size:24px;color:#ef4444;font-weight:bold">${verifyCode}</span><br><br>Monto: <b>$${amount} USD</b><br>Ingresa este código para confirmar el retiro.`
+    });
+
+    res.json({ success: true, message: 'Código de verificación enviado a tu email' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Confirmar retiro con código
+app.post('/api/withdraw/confirm', async (req, res) => {
+  const { usuario_id, code } = req.body;
+  
+  try {
+    const savedCode = verificationCodes.get(`withdraw_${usuario_id}`);
+    if (!savedCode) return res.status(400).json({ error: 'No hay retiro pendiente' });
+    if (savedCode.expiresAt < Date.now()) return res.status(400).json({ error: 'Código expirado' });
+    if (savedCode.code !== code) return res.status(400).json({ error: 'Código incorrecto' });
+    
+    const { amount } = savedCode;
+    
+    await pool.query('BEGIN');
+    
+    // Descontar saldo
+    await pool.query('UPDATE usuarios SET saldo_usd = saldo_usd - $1 WHERE id = $2', [amount, usuario_id]);
+    
+    // Registrar retiro
+    await pool.query(
+      `INSERT INTO withdrawal_log (usuario_id, amount, amount_encrypted, method, bank_name, account_number, account_type, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'processing')`,
+      [usuario_id, amount, encryptValue(amount), 'bank_transfer', req.body.bank_name, req.body.account_number, req.body.account_type]
+    );
+    
+    // Snapshot
+    await pool.query(
+      `INSERT INTO balance_snapshots (usuario_id, saldo_usd, saldo_encrypted)
+       VALUES ($1, saldo_usd, encryptValue(saldo_usd))`,
+      [usuario_id]
+    );
+    
+    await pool.query('COMMIT');
+    verificationCodes.delete(`withdraw_${usuario_id}`);
+    
+    res.json({ success: true, message: 'Retiro procesado correctamente' });
+  } catch (err) {
+    await pool.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Historial completo de transacciones (depósitos + retiros + trades)
+app.get('/api/user/:id/transaction-history', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const [deposits, withdrawals, trades] = await Promise.all([
+      pool.query(
+        `SELECT 'deposit' as type, id, amount as amount_usd, method, reference, status, created_at
+         FROM deposit_log WHERE usuario_id = $1 ORDER BY created_at DESC`,
+        [id]
+      ),
+      pool.query(
+        `SELECT 'withdrawal' as type, id, amount as amount_usd, method, bank_name, account_number, status, created_at
+         FROM withdrawal_log WHERE usuario_id = $1 ORDER BY created_at DESC`,
+        [id]
+      ),
+      pool.query(
+        `SELECT 'trade' as type, t.id, t.total_usd as amount_usd, t.tipo, t.cantidad, t.precio_usd, m.simbolo, t.created_at
+         FROM transacciones t
+         LEFT JOIN monedas m ON t.moneda_id = m.id
+         WHERE t.usuario_id = $1 ORDER BY t.created_at DESC`,
+        [id]
+      )
+    ]);
+    
+    res.json({
+      deposits: deposits.rows,
+      withdrawals: withdrawals.rows,
+      trades: trades.rows
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

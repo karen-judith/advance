@@ -5,7 +5,103 @@ const bcrypt = require('bcrypt');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
+const rateLimit = require('express-rate-limit');
+const { body, param, validationResult } = require('express-validator');
+const helmet = require('helmet');
 require('dotenv').config();
+
+// Helmet - Security headers (CSP, X-Frame-Options, etc.)
+const app = express();
+app.use(helmet());
+
+// CORS restringido (solo orígenes permitidos)
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Origen no permitido por CORS'));
+    }
+  },
+  credentials: true
+}));
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: false }));
+
+// Rate Limiting global
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: 'Demasiadas peticiones. Intenta nuevamente en 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use(globalLimiter);
+
+// Rate Limiting para auth
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Demasiados intentos. Espera 15 minutos.' },
+  skipSuccessfulRequests: true
+});
+
+// Rate Limiting para pagos
+const paymentLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 5,
+  message: { error: 'Demasiados intentos de pago. Espera 5 minutos.' }
+});
+
+// Helper: validar resultados de express-validator
+function validate(req, res) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    res.status(400).json({ error: errors.array()[0].msg });
+    return false;
+  }
+  return true;
+}
+
+// Helper: sanitizar strings para HTML (previene XSS)
+function sanitizeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
+// Helper: validar URL
+function isValidUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+// Helper: obtener tasa de cambio COP→USD (API dinámica)
+let cachedRate = 4000;
+let lastRateUpdate = 0;
+async function getExchangeRate() {
+  const now = Date.now();
+  if (now - lastRateUpdate < 3600000) return cachedRate; // Cache 1 hora
+  try {
+    const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+    const data = await res.json();
+    cachedRate = data.rates?.COP || 4000;
+    lastRateUpdate = now;
+    console.log('Tasa de cambio actualizada: 1 USD =', cachedRate, 'COP');
+  } catch (err) {
+    console.error('Error obteniendo tasa de cambio, usando cache:', cachedRate);
+  }
+  return cachedRate;
+}
 
 // MercadoPago Client
 const mpClient = new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || '' });
@@ -63,11 +159,6 @@ const transporter = nodemailer.createTransport({
 
 const verificationCodes = new Map(); // email -> { code, expiresAt }
 
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
@@ -82,7 +173,11 @@ app.get('/api/precios', async (req, res) => {
 });
 
 // Endpoint para generar y enviar código de verificación
-app.post('/api/send-code', async (req, res) => {
+// Enviar código con rate limiting y validación
+app.post('/api/send-code', authLimiter, [
+  body('email').isEmail().normalizeEmail().withMessage('Email inválido')
+], async (req, res) => {
+  if (!validate(req, res)) return;
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email requerido' });
 
@@ -113,7 +208,15 @@ app.post('/api/send-code', async (req, res) => {
 });
 
 // Endpoint de registro
-app.post('/api/register', async (req, res) => {
+// Registro con rate limiting y validación
+app.post('/api/register', authLimiter, [
+  body('nombre').trim().isLength({ min: 2, max: 100 }).withMessage('Nombre inválido'),
+  body('email').isEmail().normalizeEmail().withMessage('Email inválido'),
+  body('password').isLength({ min: 6, max: 100 }).withMessage('Contraseña debe tener al menos 6 caracteres'),
+  body('code').isLength({ min: 6, max: 6 }).isNumeric().withMessage('Código inválido')
+], async (req, res) => {
+  if (!validate(req, res)) return;
+
   const { nombre, email, password, code } = req.body;
   
   console.log('REGISTER - email:', email, '| nombre:', nombre, '| password length:', password ? password.length : 'N/A', '| code:', code);
@@ -163,7 +266,12 @@ app.post('/api/register', async (req, res) => {
 });
 
 // Endpoint de login
-app.post('/api/login', async (req, res) => {
+// Login con rate limiting y validación
+app.post('/api/login', authLimiter, [
+  body('email').isEmail().normalizeEmail().withMessage('Email inválido'),
+  body('password').notEmpty().withMessage('Contraseña requerida')
+], async (req, res) => {
+  if (!validate(req, res)) return;
   const { email, password } = req.body;
   
   console.log('LOGIN - email:', email, '| password:', password);
@@ -208,7 +316,11 @@ app.post('/api/login', async (req, res) => {
 });
 
 // Endpoint para solicitar código de recuperación de contraseña
-app.post('/api/forgot-password', async (req, res) => {
+// Forgot password con rate limiting y validación
+app.post('/api/forgot-password', authLimiter, [
+  body('email').isEmail().normalizeEmail().withMessage('Email inválido')
+], async (req, res) => {
+  if (!validate(req, res)) return;
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email requerido' });
 
@@ -280,7 +392,13 @@ app.post('/api/verify-reset-code', async (req, res) => {
 });
 
 // Endpoint para cambiar contraseña
-app.post('/api/reset-password', async (req, res) => {
+// Reset password con validación
+app.post('/api/reset-password', authLimiter, [
+  body('email').isEmail().normalizeEmail().withMessage('Email inválido'),
+  body('code').isLength({ min: 6, max: 6 }).isNumeric().withMessage('Código inválido'),
+  body('newPassword').isLength({ min: 6, max: 100 }).withMessage('Contraseña debe tener al menos 6 caracteres')
+], async (req, res) => {
+  if (!validate(req, res)) return;
   const { email, code, newPassword } = req.body;
   if (!email || !code || !newPassword) {
     return res.status(400).json({ error: 'Email, código y nueva contraseña requeridos' });
@@ -325,7 +443,15 @@ app.post('/api/reset-password', async (req, res) => {
 });
 
 // Endpoint de transacciones (compra/venta)
-app.post('/api/trade', async (req, res) => {
+// Trade con validación de entrada
+app.post('/api/trade', [
+  body('usuario_id').isInt({ min: 1 }).withMessage('Usuario inválido'),
+  body('moneda_id').isInt({ min: 1 }).withMessage('Moneda inválida'),
+  body('tipo').isIn(['compra', 'venta']).withMessage('Tipo debe ser compra o venta'),
+  body('cantidad').isFloat({ min: 0.00000001 }).withMessage('Cantidad debe ser mayor a 0'),
+  body('precio_usd').isFloat({ min: 0.01 }).withMessage('Precio inválido')
+], async (req, res) => {
+  if (!validate(req, res)) return;
   const { usuario_id, moneda_id, tipo, cantidad, precio_usd } = req.body;
   
   try {
@@ -498,7 +624,12 @@ app.get('/api/usuario/:id/balance-history', async (req, res) => {
 });
 
 // Endpoint para depositar saldo (registro con encriptación)
-app.post('/api/deposit', async (req, res) => {
+// Deposit con validación
+app.post('/api/deposit', [
+  body('usuario_id').isInt({ min: 1 }).withMessage('Usuario inválido'),
+  body('amount').isFloat({ min: 0.01 }).withMessage('Monto inválido')
+], async (req, res) => {
+  if (!validate(req, res)) return;
   const { usuario_id, amount, method, reference } = req.body;
   
   if (!usuario_id || !amount || amount <= 0) {
@@ -560,7 +691,12 @@ app.get('/api/usuario/:id/deposits', async (req, res) => {
 // ==========================================
 
 // Configurar PIN de seguridad (2FA para depósitos)
-app.post('/api/user/:id/set-pin', async (req, res) => {
+// Set PIN con validación
+app.post('/api/user/:id/set-pin', [
+  param('id').isInt({ min: 1 }).withMessage('ID inválido'),
+  body('pin').isLength({ min: 6, max: 6 }).isNumeric().withMessage('El PIN debe ser de 6 dígitos numéricos')
+], async (req, res) => {
+  if (!validate(req, res)) return;
   const { pin } = req.body;
   const { id } = req.params;
   if (!pin || pin.length !== 6 || !/^\d+$/.test(pin)) {
@@ -624,7 +760,16 @@ app.post('/api/payment/create', async (req, res) => {
 });
 
 // Verificar código de depósito y crear pago en MercadoPago
-app.post('/api/payment/confirm', async (req, res) => {
+// Confirmar pago con rate limiting y validación
+app.post('/api/payment/confirm', paymentLimiter, [
+  body('usuario_id').isInt({ min: 1 }).withMessage('Usuario inválido'),
+  body('amount').isFloat({ min: 10000 }).withMessage('Monto mínimo 10,000 COP'),
+  body('code').isLength({ min: 6, max: 6 }).isNumeric().withMessage('Código inválido'),
+  body('pin').isLength({ min: 6, max: 6 }).isNumeric().withMessage('PIN inválido'),
+  body('email').isEmail().normalizeEmail().withMessage('Email inválido'),
+  body('nombre').trim().isLength({ min: 2, max: 100 }).withMessage('Nombre inválido')
+], async (req, res) => {
+  if (!validate(req, res)) return;
   const { usuario_id, amount, code, pin, email, nombre } = req.body;
   
   if (!usuario_id || !amount || !code || !pin) {
@@ -714,8 +859,12 @@ app.post('/api/payment/webhook', async (req, res) => {
       
       if (userResult.rows.length > 0) {
         const userId = userResult.rows[0].id;
-        const amountUsd = amountCop / 4000; // Conversión COP a USD
+        const exchangeRate = await getExchangeRate(); // Tasa dinámica
+        const amountUsd = amountCop / exchangeRate;
         const exchangeRate = 4000;
+        
+        const exchangeRate = await getExchangeRate(); // Tasa dinámica
+        const amountUsd = amountCop / exchangeRate;
         
         // Guardar en mercadopago_payments con TODOS los detalles
         await pool.query(
@@ -731,7 +880,7 @@ app.post('/api/payment/webhook', async (req, res) => {
             exchangeRate, mpMethod, payerEmail, payerName, payerFirstName, payerLastName,
             mpStatus, mpStatusDetail, mpCurrency, mpInstallments || 0, mpNetAmount, mpFee,
             mpDateApproved, mpDateCreated, paymentId, cardHolder, bankName,
-            mpIssuer, preferenceId, req.body?.notification_url, 'deposit'
+            mpIssuer, preferenceId, isValidUrl(req.body?.notification_url) ? req.body.notification_url : null, 'deposit'
           ]
         );
         
@@ -766,6 +915,7 @@ app.post('/api/payment/webhook', async (req, res) => {
       } else {
         // Pago sin usuario registrado - guardar de todos modos para auditoría
         console.log('PAGO SIN USUARIO - Email:', payerEmail, 'Monto:', amountCop);
+        const exchangeRate = await getExchangeRate();
         await pool.query(
           `INSERT INTO mercadopago_payments (
             usuario_id, mp_payment_id, amount_cop, amount_cop_encrypted, amount_usd, amount_usd_encrypted,
@@ -775,11 +925,11 @@ app.post('/api/payment/webhook', async (req, res) => {
             mp_issuer, mp_preference_id, mp_notification_url, flow_type
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)`,
           [
-            null, paymentId, amountCop, encryptValue(amountCop), amountCop / 4000, encryptValue(amountCop / 4000),
-            4000, mpMethod, payerEmail, payerName, payerFirstName, payerLastName,
+            null, paymentId, amountCop, encryptValue(amountCop), amountCop / exchangeRate, encryptValue(amountCop / exchangeRate),
+            exchangeRate, mpMethod, payerEmail, payerName, payerFirstName, payerLastName,
             mpStatus, mpStatusDetail, mpCurrency, mpInstallments || 0, mpNetAmount, mpFee,
             mpDateApproved, mpDateCreated, paymentId, cardHolder, bankName,
-            mpIssuer, preferenceId, req.body?.notification_url, 'deposit'
+            mpIssuer, preferenceId, isValidUrl(req.body?.notification_url) ? req.body.notification_url : null, 'deposit'
           ]
         );
       }
@@ -792,7 +942,16 @@ app.post('/api/payment/webhook', async (req, res) => {
 });
 
 // Solicitar retiro
-app.post('/api/withdraw', async (req, res) => {
+// Solicitar retiro con rate limiting y validación
+app.post('/api/withdraw', paymentLimiter, [
+  body('usuario_id').isInt({ min: 1 }).withMessage('Usuario inválido'),
+  body('amount').isFloat({ min: 1 }).withMessage('Monto inválido'),
+  body('bank_name').trim().notEmpty().withMessage('Banco requerido'),
+  body('account_number').trim().notEmpty().withMessage('Cuenta requerida'),
+  body('account_type').isIn(['ahorros', 'corriente']).withMessage('Tipo de cuenta inválido'),
+  body('pin').isLength({ min: 6, max: 6 }).isNumeric().withMessage('PIN inválido')
+], async (req, res) => {
+  if (!validate(req, res)) return;
   const { usuario_id, amount, method, bank_name, account_number, account_type, pin } = req.body;
   
   if (!usuario_id || !amount || amount <= 0) {
@@ -824,7 +983,7 @@ app.post('/api/withdraw', async (req, res) => {
       to: emailResult.rows[0].email,
       subject: 'Verificación de retiro - Advance',
       text: `Tu código de verificación para retiro de $${amount} USD es: ${verifyCode}`,
-      html: `<b>Código de retiro:</b> <span style="font-size:24px;color:#ef4444;font-weight:bold">${verifyCode}</span><br><br>Monto: <b>$${amount} USD</b><br>Ingresa este código para confirmar el retiro.`
+      html: `<b>Código de retiro:</b> <span style="font-size:24px;color:#ef4444;font-weight:bold">${sanitizeHtml(verifyCode)}</span><br><br>Monto: <b>$${sanitizeHtml(amount)} USD</b><br>Ingresa este código para confirmar el retiro.`
     });
 
     res.json({ success: true, message: 'Código de verificación enviado a tu email' });
@@ -834,7 +993,14 @@ app.post('/api/withdraw', async (req, res) => {
 });
 
 // Confirmar retiro con código
-app.post('/api/withdraw/confirm', async (req, res) => {
+// Confirmar retiro con rate limiting y validación
+app.post('/api/withdraw/confirm', paymentLimiter, [
+  body('usuario_id').isInt({ min: 1 }).withMessage('Usuario inválido'),
+  body('code').isLength({ min: 6, max: 6 }).isNumeric().withMessage('Código inválido'),
+  body('bank_name').trim().notEmpty().withMessage('Banco requerido'),
+  body('account_number').trim().notEmpty().withMessage('Cuenta requerida')
+], async (req, res) => {
+  if (!validate(req, res)) return;
   const { usuario_id, code } = req.body;
   
   try {

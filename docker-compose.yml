@@ -15,8 +15,12 @@ services:
       - SMTP_HOST=smtp.gmail.com
       - SMTP_PORT=465
       - SMTP_SECURE=true
-      - SMTP_USER=karenramiresjudith@gmail.com
-      - SMTP_PASS=zxmeytebkfwlwywx
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - MERCADOPAGO_ACCESS_TOKEN=${MERCADOPAGO_ACCESS_TOKEN}
+      - MERCADOPAGO_PUBLIC_KEY=${MERCADOPAGO_PUBLIC_KEY}
+      - ALLOWED_ORIGINS=http://localhost:3000
     depends_on:
       - db
 
@@ -25,7 +29,7 @@ services:
     environment:
       POSTGRES_DB: advance
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
     ports:
       - "5432:5432"
     volumes:

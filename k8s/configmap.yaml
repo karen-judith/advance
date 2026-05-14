@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: advance-config
+  namespace: advance-trading
+data:
+  DATABASE_URL: "postgresql://postgres:postgres@db:5432/advance"
+  SMTP_HOST: "smtp.gmail.com"
+  SMTP_PORT: "465"
+  SMTP_SECURE: "true"
+  ALLOWED_ORIGINS: "http://localhost:3000,https://advance-trading.example.com"

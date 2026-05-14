@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: advance-trading
+  labels:
+    component: backend
+spec:
+  selector:
+    component: backend
+  ports:
+  - protocol: TCP
+    port: 5000
+    targetPort: 5000
+  type: ClusterIP

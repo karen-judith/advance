@@ -861,10 +861,6 @@ app.post('/api/payment/webhook', async (req, res) => {
         const userId = userResult.rows[0].id;
         const exchangeRate = await getExchangeRate(); // Tasa dinámica
         const amountUsd = amountCop / exchangeRate;
-        const exchangeRate = 4000;
-        
-        const exchangeRate = await getExchangeRate(); // Tasa dinámica
-        const amountUsd = amountCop / exchangeRate;
         
         // Guardar en mercadopago_payments con TODOS los detalles
         await pool.query(

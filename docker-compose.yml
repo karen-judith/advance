@@ -29,8 +29,8 @@ services:
     environment:
       POSTGRES_DB: advance
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql

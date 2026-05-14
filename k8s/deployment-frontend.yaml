@@ -18,8 +18,8 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: advance-trading-frontend:latest
-        imagePullPolicy: IfNotPresent
+        image: karenhjhi/advance-trading-frontend:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 80
         resources:

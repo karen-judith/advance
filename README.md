@@ -1,7 +1,6 @@
-
 # Advance Trading
 
-Plataforma de trading de criptomonedas con pagos reales en MercadoPago (Colombia/Latam), seguridad de doble factor (2FA), cifrado AES-256, y un asistente interactivo 3D (AdvanceBot) con rostro robótico LED.
+Plataforma de trading de criptomonedas con pagos reales en MercadoPago (Colombia/Latam), seguridad de doble factor (2FA), cifrado AES-256, asistente interactivo 3D (AdvanceBot) con rostro robótico LED, y monitoreo con Grafana + Loki.
 
 ## Stack Tecnológico
 
@@ -14,7 +13,9 @@ Plataforma de trading de criptomonedas con pagos reales en MercadoPago (Colombia
 | **Pagos** | MercadoPago SDK v2 (Colombia/Latam) |
 | **Seguridad** | Helmet, bcrypt, AES-256-CBC, express-rate-limit, express-validator |
 | **Email** | Nodemailer + Gmail SMTP |
-| **Orquestación** | Kubernetes (básico) |
+| **Monitoreo** | Grafana 11 + Loki 3 + Promtail 3 |
+| **Orquestación** | Kubernetes (kind local, manifiestos en `k8s/`) |
+| **Imágenes Docker** | Docker Hub: `karenhjhi/advance-trading-backend`, `karenhjhi/advance-trading-frontend` |
 
 ## Características
 
@@ -42,7 +43,7 @@ Plataforma de trading de criptomonedas con pagos reales en MercadoPago (Colombia
 - **Protección SQL Injection** en URLs de notificación
 
 ### 📊 Base de Datos
-- `usuarios` — cuentas con saldo y PIN de seguridad
+- `usuarios` — cuentas con saldo (comienza en $0.00) y PIN de seguridad
 - `transacciones` — historial de compra/venta de criptos
 - `portafolios` — tenencias de criptomonedas por usuario
 - `monedas` — catálogo de criptomonedas (BTC, ETH, BNB, SOL)
@@ -51,6 +52,12 @@ Plataforma de trading de criptomonedas con pagos reales en MercadoPago (Colombia
 - `trade_audit` — auditoría de operaciones
 - `access_log` — registro de accesos
 - `balance_snapshots` — instantáneas de saldo
+
+### 📈 Monitoreo (Grafana + Loki + Promtail)
+- **Loki** — almacena y centraliza todos los logs de la aplicación
+- **Promtail** — recolecta logs de los contenedores Docker y los envía a Loki
+- **Grafana** — panel web para visualizar logs con dashboard precargado
+- Acceso: `http://localhost:3101` — usuario: `admin`, contraseña: `advance2024`
 
 ### 🖥️ API Endpoints
 
@@ -96,11 +103,37 @@ Plataforma de trading de criptomonedas con pagos reales en MercadoPago (Colombia
 | GET | `/api/usuario/:id/trade-audit` | Auditoría de trades |
 | GET | `/api/usuario/:id/balance-history` | Historial de saldo |
 
+### ☸️ Manifiestos Kubernetes
+
+La carpeta `k8s/` contiene **13 manifiestos** listos para desplegar en un clúster Kubernetes (compatible con kind, minikube o producción):
+
+| Archivo | Tipo | Función |
+|---|---|---|
+| `namespace.yaml` | Namespace | Aísla todos los recursos en `advance-trading` |
+| `configmap.yaml` | ConfigMap | Variables no secretas (SMTP, CORS, DB_URL) |
+| `secret.yaml` | Secret | Credenciales SMTP, ENCRYPTION_KEY, MercadoPago tokens |
+| `db-init-configmap.yaml` | ConfigMap | Script SQL inicial (tablas, monedas, usuario demo) |
+| `deployment-db.yaml` | Deployment | PostgreSQL 16 (1 réplica, 10GB persistente) |
+| `pvc-db.yaml` | PersistentVolumeClaim | 10GB de almacenamiento persistente para la DB |
+| `service-db.yaml` | Service | Expone PostgreSQL internamente como `db:5432` |
+| `deployment-backend.yaml` | Deployment | API Node.js (2 réplicas, imagen Docker Hub) |
+| `service-backend.yaml` | Service | Expone backend internamente como `backend:5000` |
+| `deployment-frontend.yaml` | Deployment | Frontend con Nginx (2 réplicas, imagen Docker Hub) |
+| `service-frontend.yaml` | Service | Expone frontend como `ClusterIP` en puerto 80 |
+| `ingress.yaml` | Ingress | Enruta tráfico: `/` → frontend, `/api` → backend |
+| `kustomization.yaml` | Kustomization | Orquestador que aplica todos los manifiestos juntos |
+
+Para desplegar en Kubernetes:
+```bash
+kubectl apply -k k8s/
+```
+
 ## Requisitos
 
 - Docker y Docker Compose instalados
 - Windows: Docker Desktop (con WSL2 o Hyper-V)
 - Linux/Mac: Docker Engine + Docker Compose
+- (Opcional) kind para Kubernetes local
 
 ## Configuración
 
@@ -128,9 +161,15 @@ docker compose up -d --build
 ```
 
 Esto levanta:
-- **Frontend**: `http://localhost:3000`
-- **Backend**: `http://localhost:5000`
-- **PostgreSQL**: puerto `5434` (mapeado a `5432` interno)
+
+| Servicio | URL | Puerto |
+|---|---|---|
+| **Frontend** | `http://localhost:3000` | 3000 |
+| **Backend** | `http://localhost:5000` | 5000 |
+| **PostgreSQL** | `localhost:5434` (interno 5432) | 5434 |
+| **Loki** | `http://localhost:3100` | 3100 |
+| **Grafana** | `http://localhost:3101` (admin / advance2024) | 3101 |
+| **Promtail** | interno (recolecta logs) | - |
 
 ### 3. Conectar DBeaver (opcional)
 
@@ -143,6 +182,8 @@ Esto levanta:
 | Contraseña | `postgres` |
 | SSL | Desactivado |
 
+> **Nota**: El puerto `5434` se usa porque Windows suele tener PostgreSQL 12/17 corriendo en el puerto `5433` nativo.
+
 ## Uso
 
 1. Abrir `http://localhost:3000`
@@ -154,31 +195,43 @@ Esto levanta:
 7. **Operar**: comprar/vender BTC, ETH, BNB, SOL
 8. **Retirar**: solicitar retiro a cuenta bancaria colombiana con 2FA
 9. Consultar historial de transacciones, accesos y auditoría
+10. **Monitoreo**: abrir `http://localhost:3101` para ver logs en Grafana
 
 ## Notas Importantes
 
-- El webhook de MercadoPago (`/api/payment/webhook`) requiere una URL pública HTTPS en producción (ej: ngrok o dominio real)
-- Los códigos de verificación expiran en 10 minutos
-- El PIN de seguridad es de 6 dígitos y se configura desde Ajustes
-- El saldo inicial de prueba es $10,000 USD
-- Los contenedores del backend y frontend se reconstruyen automáticamente con `docker compose up -d --build`
+- **Saldo inicial**: Los nuevos usuarios comienzan con **$0.00 USD** (sin dinero de prueba)
+- **Login**: No hay credenciales demo predefinidas — cada usuario debe registrarse
+- **Webhook MercadoPago**: El endpoint `/api/payment/webhook` requiere una URL pública HTTPS en producción (ej: ngrok o dominio real)
+- **Códigos de verificación**: Expiran en 10 minutos
+- **PIN de seguridad**: 6 dígitos, se configura desde Ajustes
+- **Reconstrucción**: `docker compose up -d --build` para rebuildear imágenes
+- **Imágenes publicadas** en Docker Hub: `karenhjhi/advance-trading-backend:latest` y `karenhjhi/advance-trading-frontend:latest`
 
 ## Solución de Problemas
 
-**DBeaver no conecta**: Verifica que no haya otro PostgreSQL local en el puerto. Docker usa `5434`. Detén servicios PostgreSQL locales con `net stop postgresql-x64-*` (como Administrador).
+**DBeaver no conecta**: Verifica que no haya otro PostgreSQL local. Docker usa `5434`. Detén servicios PostgreSQL locales con `net stop postgresql-x64-*` (como Administrador).
 
-**Error SMTP "Missing credentials"**: Asegúrate de que las variables `SMTP_USER` y `SMTP_PASS` estén definidas en el archivo `.env` de la raíz del proyecto.
+**Error SMTP "Missing credentials"**: Asegúrate de que `SMTP_USER` y `SMTP_PASS` estén definidos en `.env` en la raíz del proyecto.
 
 **Backend no inicia**: Revisa los logs con `docker logs advance-trading-backend-1`.
 
+**Loki no arranca**: Revisa los logs con `docker logs advance-loki`. Si hay errores de configuración, verifica `monitoring/loki-config.yaml` (debe usar `tsdb`, schema `v13`, y `wal.dir: /loki/wal`).
+
+**Grafana no muestra logs**: Verifica que Loki esté corriendo (`curl http://localhost:3100/ready` debe responder `ready`).
+
 ## Despliegue en Producción
 
-Para producción se incluyen manifiestos Kubernetes básicos en `k8s/`. Se recomienda:
+Para producción se incluyen:
 
+- **Manifiestos Kubernetes** en `k8s/` — aplicar con `kubectl apply -k k8s/`
+- **Imágenes Docker Hub**: `karenhjhi/advance-trading-backend` y `karenhjhi/advance-trading-frontend`
+- **kind**: Clúster local para pruebas (visible en `docker ps` como `desktop-control-plane`)
+
+Recomendaciones:
 - Usar un dominio real con HTTPS
 - Configurar `notification_url` público para webhooks de MercadoPago
 - Usar tokens de producción de MercadoPago (no sandbox)
-- Configurar un proxy inverso (Nginx) para SSL
+- Configurar Ingress con TLS real
 - No exponer el puerto de PostgreSQL públicamente
 
 ## Seguridad

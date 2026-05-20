@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   nombre VARCHAR(100) NOT NULL,
   email VARCHAR(100) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  saldo_usd DECIMAL(18, 8) DEFAULT 10000.00,
+  saldo_usd DECIMAL(18, 8) DEFAULT 0.00,
   security_pin VARCHAR(6),
   reset_code VARCHAR(6),
   reset_code_expiry TIMESTAMP,

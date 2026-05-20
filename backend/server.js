@@ -249,7 +249,7 @@ app.post('/api/register', authLimiter, [
     await pool.query(
       `INSERT INTO balance_snapshots (usuario_id, saldo_usd, saldo_encrypted)
        VALUES ($1, $2, $3)`,
-      [userId, 10000.00, encryptValue(10000.00)]
+      [userId, 0.00, encryptValue(0.00)]
     );
     
     // Eliminar código usado

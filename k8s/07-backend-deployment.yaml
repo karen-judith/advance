@@ -1,0 +1,116 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: advance-trading
+  labels:
+    app: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: advance-trading-backend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5000
+          name: http
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: advance-secrets
+              key: DATABASE_URL
+        - name: SMTP_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: advance-config
+              key: SMTP_HOST
+        - name: SMTP_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: advance-config
+              key: SMTP_PORT
+        - name: SMTP_SECURE
+          valueFrom:
+            configMapKeyRef:
+              name: advance-config
+              key: SMTP_SECURE
+        - name: SMTP_USER
+          valueFrom:
+            secretKeyRef:
+              name: advance-secrets
+              key: SMTP_USER
+        - name: SMTP_PASS
+          valueFrom:
+            secretKeyRef:
+              name: advance-secrets
+              key: SMTP_PASS
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: advance-secrets
+              key: ENCRYPTION_KEY
+        - name: MERCADOPAGO_ACCESS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: advance-secrets
+              key: MERCADOPAGO_ACCESS_TOKEN
+        - name: MERCADOPAGO_PUBLIC_KEY
+          valueFrom:
+            secretKeyRef:
+              name: advance-secrets
+              key: MERCADOPAGO_PUBLIC_KEY
+        - name: ALLOWED_ORIGINS
+          valueFrom:
+            configMapKeyRef:
+              name: advance-config
+              key: ALLOWED_ORIGINS
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: advance-trading
+  labels:
+    app: backend
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5000
+    targetPort: 5000
+    protocol: TCP
+    name: http
+  selector:
+    app: backend

@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: db-init-sql
+  name: postgres-init-sql
   namespace: advance-trading
 data:
   init.sql: |

@@ -1,0 +1,23 @@
+{
+  "title": "Advance Trading",
+  "uid": "advance-trading",
+  "description": "Dashboard de monitoreo Advance Trading",
+  "tags": ["advance", "trading"],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "version": 1,
+  "panels": [
+    {
+      "title": "Logs del Backend",
+      "type": "logs",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "{service=\"backend\"}",
+          "datasource": "Loki"
+        }
+      ],
+      "datasource": "Loki"
+    }
+  ]
+}

@@ -34,3 +34,52 @@ services:
       - "5434:5432"
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: advance-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki-config.yaml:/etc/loki/config.yaml
+      - loki-data:/loki
+    command: -config.file=/etc/loki/config.yaml
+    networks:
+      - default
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: advance-promtail
+    volumes:
+      - ./monitoring/promtail-config.yaml:/etc/promtail/config.yaml
+      - /var/log:/var/log
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/config.yaml
+    depends_on:
+      - loki
+    networks:
+      - default
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: advance-grafana
+    ports:
+      - "3101:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=advance2024
+      - GF_INSTALL_PLUGINS=
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana-datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml
+      - ./monitoring/grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
+      - ./monitoring/advance-dashboard.json:/etc/grafana/provisioning/dashboards/advance-dashboard.json
+    depends_on:
+      - loki
+    networks:
+      - default
+
+volumes:
+  loki-data:
+  grafana-data:

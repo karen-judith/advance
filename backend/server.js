@@ -1,3 +1,5 @@
+require('./tracing');
+
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
@@ -8,6 +10,7 @@ const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
 const rateLimit = require('express-rate-limit');
 const { body, param, validationResult } = require('express-validator');
 const helmet = require('helmet');
+const promClient = require('prom-client');
 require('dotenv').config();
 
 // Helmet - Security headers (CSP, X-Frame-Options, etc.)
@@ -29,6 +32,32 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false }));
+
+// Prometheus metrics
+const register = new promClient.Registry();
+promClient.collectDefaultMetrics({ register });
+
+const httpRequestDuration = new promClient.Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'Duration of HTTP requests in seconds',
+  labelNames: ['method', 'route', 'status_code'],
+  buckets: [0.01, 0.05, 0.1, 0.5, 1, 5],
+  registers: [register],
+});
+
+app.use((req, res, next) => {
+  if (req.path === '/metrics') return next();
+  const end = httpRequestDuration.startTimer();
+  res.on('finish', () => {
+    end({ method: req.method, route: req.route?.path || req.path, status_code: res.statusCode });
+  });
+  next();
+});
+
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
+});
 
 // Rate Limiting global
 const globalLimiter = rateLimit({

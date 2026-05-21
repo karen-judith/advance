@@ -21,8 +21,11 @@ services:
       - MERCADOPAGO_ACCESS_TOKEN=${MERCADOPAGO_ACCESS_TOKEN}
       - MERCADOPAGO_PUBLIC_KEY=${MERCADOPAGO_PUBLIC_KEY}
       - ALLOWED_ORIGINS=http://localhost:3000
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4318/v1/traces
+      - OTEL_SERVICE_NAME=advance-trading-backend
     depends_on:
       - db
+      - tempo
 
   db:
     image: postgres:16
@@ -77,9 +80,38 @@ services:
       - ./monitoring/advance-dashboard.json:/etc/grafana/provisioning/dashboards/advance-dashboard.json
     depends_on:
       - loki
+      - prometheus
+      - tempo
+    networks:
+      - default
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: advance-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus-config.yaml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command: --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus
+    networks:
+      - default
+
+  tempo:
+    image: grafana/tempo:2.6.0
+    container_name: advance-tempo
+    ports:
+      - "3200:3200"
+      - "4318:4318"
+    volumes:
+      - ./monitoring/tempo-config.yaml:/etc/tempo/config.yaml
+      - tempo-data:/var/tempo
+    command: -config.file=/etc/tempo/config.yaml
     networks:
       - default
 
 volumes:
   loki-data:
   grafana-data:
+  prometheus-data:
+  tempo-data:

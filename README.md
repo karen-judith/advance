@@ -1,6 +1,6 @@
 # Advance Trading
 
-Plataforma de trading de criptomonedas con pagos reales en MercadoPago (Colombia/Latam), seguridad de doble factor (2FA), cifrado AES-256, asistente interactivo 3D (AdvanceBot) con rostro robótico LED, y monitoreo con Grafana + Loki.
+Plataforma de trading de criptomonedas con pagos reales en MercadoPago (Colombia/Latam), seguridad de doble factor (2FA), cifrado AES-256, asistente interactivo 3D (AdvanceBot) con rostro robótico LED, y monitoreo completo con métricas, logs y trazas distribuidas.
 
 ## Stack Tecnológico
 
@@ -13,7 +13,9 @@ Plataforma de trading de criptomonedas con pagos reales en MercadoPago (Colombia
 | **Pagos** | MercadoPago SDK v2 (Colombia/Latam) |
 | **Seguridad** | Helmet, bcrypt, AES-256-CBC, express-rate-limit, express-validator |
 | **Email** | Nodemailer + Gmail SMTP |
-| **Monitoreo** | Grafana 11 + Loki 3 + Promtail 3 |
+| **Monitoreo** | Grafana 11 + Loki 3 + Prometheus 2.53 + Tempo 2.6 + Promtail 3 |
+| **Trazas** | OpenTelemetry (instrumentación HTTP, Express, PostgreSQL) |
+| **Métricas** | prom-client (CPU, memoria, duración de requests) |
 | **Orquestación** | Kubernetes (kind local, manifiestos en `k8s/`) |
 | **Imágenes Docker** | Docker Hub: `karenhjhi/advance-trading-backend`, `karenhjhi/advance-trading-frontend` |
 
@@ -53,11 +55,22 @@ Plataforma de trading de criptomonedas con pagos reales en MercadoPago (Colombia
 - `access_log` — registro de accesos
 - `balance_snapshots` — instantáneas de saldo
 
-### 📈 Monitoreo (Grafana + Loki + Promtail)
-- **Loki** — almacena y centraliza todos los logs de la aplicación
-- **Promtail** — recolecta logs de los contenedores Docker y los envía a Loki
-- **Grafana** — panel web para visualizar logs con dashboard precargado
-- Acceso: `http://localhost:3101` — usuario: `admin`, contraseña: `advance2024`
+### 📈 Monitoreo completo (Grafana + Loki + Prometheus + Tempo)
+
+| Componente | Función | Puerto |
+|---|---|---|
+| **Loki** | Almacena y centraliza logs de la aplicación | 3100 |
+| **Promtail** | Recolecta logs de Docker y los envía a Loki | - |
+| **Prometheus** | Almacena métricas (CPU, memoria, duración de requests) | 9090 |
+| **Tempo** | Almacena trazas distribuidas (seguimiento de peticiones completas) | 3200 / 4318 |
+| **Grafana** | Dashboard unificado para visualizar logs + métricas + trazas | 3101 |
+
+Acceso a Grafana: `http://localhost:3101` — usuario: `admin`, contraseña: `advance2024`
+
+**Datasources preconfigurados:**
+- **Loki** para consultar logs con queries como `{container="advance-trading-backend-1"} |= "error"`
+- **Prometheus** para métricas como `http_request_duration_seconds_count`, `process_cpu_seconds_total`
+- **Tempo** para buscar trazas por servicio y ver el recorrido completo de cada petición
 
 ### 🖥️ API Endpoints
 
@@ -102,6 +115,11 @@ Plataforma de trading de criptomonedas con pagos reales en MercadoPago (Colombia
 | GET | `/api/usuario/:id/access-log` | Registro de accesos |
 | GET | `/api/usuario/:id/trade-audit` | Auditoría de trades |
 | GET | `/api/usuario/:id/balance-history` | Historial de saldo |
+
+#### Monitoreo
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/metrics` | Métricas en formato Prometheus (CPU, memoria, duración de requests) |
 
 ### ☸️ Manifiestos Kubernetes
 
@@ -160,16 +178,18 @@ MERCADOPAGO_PUBLIC_KEY=TEST-yyyyyyyyyyyy
 docker compose up -d --build
 ```
 
-Esto levanta:
+Esto levanta **8 servicios**:
 
-| Servicio | URL | Puerto |
+| Servicio | URL / Puerto | Función |
 |---|---|---|
-| **Frontend** | `http://localhost:3000` | 3000 |
-| **Backend** | `http://localhost:5000` | 5000 |
-| **PostgreSQL** | `localhost:5434` (interno 5432) | 5434 |
-| **Loki** | `http://localhost:3100` | 3100 |
-| **Grafana** | `http://localhost:3101` (admin / advance2024) | 3101 |
-| **Promtail** | interno (recolecta logs) | - |
+| **Frontend** | `http://localhost:3000` | Interfaz de usuario |
+| **Backend** | `http://localhost:5000` | API + métricas `/metrics` |
+| **PostgreSQL** | `localhost:5434` | Base de datos |
+| **Loki** | `http://localhost:3100` | Almacenamiento de logs |
+| **Promtail** | interno | Recolector de logs hacia Loki |
+| **Prometheus** | `http://localhost:9090` | Métricas (CPU, memoria, requests) |
+| **Tempo** | `localhost:3200` (4318 OTLP) | Trazas distribuidas |
+| **Grafana** | `http://localhost:3101` (admin / advance2024) | Dashboard unificado |
 
 ### 3. Conectar DBeaver (opcional)
 
@@ -195,7 +215,21 @@ Esto levanta:
 7. **Operar**: comprar/vender BTC, ETH, BNB, SOL
 8. **Retirar**: solicitar retiro a cuenta bancaria colombiana con 2FA
 9. Consultar historial de transacciones, accesos y auditoría
-10. **Monitoreo**: abrir `http://localhost:3101` para ver logs en Grafana
+
+### Visualizar monitoreo en Grafana
+
+```bash
+# 1. Generar tráfico de prueba
+./generate-traffic.sh
+# O en PowerShell: ejecutar el script manualmente con curl
+
+# 2. Abrir http://localhost:3101 (admin / advance2024)
+
+# 3. Explorar:
+#    - Métricas:   Explore > Prometheus > query: http_request_duration_seconds_count
+#    - Trazas:     Explore > Tempo > Search > buscar trazas recientes
+#    - Logs:       Explore > Loki > query: {container="advance-trading-backend-1"} |= "login"
+```
 
 ## Notas Importantes
 
@@ -206,6 +240,7 @@ Esto levanta:
 - **PIN de seguridad**: 6 dígitos, se configura desde Ajustes
 - **Reconstrucción**: `docker compose up -d --build` para rebuildear imágenes
 - **Imágenes publicadas** en Docker Hub: `karenhjhi/advance-trading-backend:latest` y `karenhjhi/advance-trading-frontend:latest`
+- **Trazas OpenTelemetry**: El backend envía trazas automáticamente a Tempo (OTLP HTTP, puerto 4318). Se instrumentan HTTP, Express y PostgreSQL.
 
 ## Solución de Problemas
 
@@ -218,6 +253,10 @@ Esto levanta:
 **Loki no arranca**: Revisa los logs con `docker logs advance-loki`. Si hay errores de configuración, verifica `monitoring/loki-config.yaml` (debe usar `tsdb`, schema `v13`, y `wal.dir: /loki/wal`).
 
 **Grafana no muestra logs**: Verifica que Loki esté corriendo (`curl http://localhost:3100/ready` debe responder `ready`).
+
+**Prometheus no muestra métricas**: Verifica que el backend responda en `http://localhost:5000/metrics`.
+
+**Tempo no recibe trazas**: Verifica que el backend tenga la variable `OTEL_EXPORTER_OTLP_ENDPOINT` apuntando a `http://tempo:4318/v1/traces`.
 
 ## Despliegue en Producción
 

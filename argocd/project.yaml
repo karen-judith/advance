@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: advance-trading
+  namespace: argocd
+spec:
+  description: Proyecto Advance Trading - Trading de Criptomonedas
+  sourceRepos:
+    - https://github.com/karen-judith/advance.git
+  destinations:
+    - namespace: advance-trading
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

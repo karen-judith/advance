@@ -121,29 +121,76 @@ Acceso a Grafana: `http://localhost:3101` — usuario: `admin`, contraseña: `ad
 |---|---|---|
 | GET | `/metrics` | Métricas en formato Prometheus (CPU, memoria, duración de requests) |
 
-### ☸️ Manifiestos Kubernetes
+### ☸️ Despliegue en Kubernetes
 
-La carpeta `k8s/` contiene **13 manifiestos** listos para desplegar en un clúster Kubernetes (compatible con kind, minikube o producción):
+La carpeta `k8s/` contiene **13 manifiestos** listos para desplegar en un clúster Kubernetes (compatible con kind, Docker Desktop, minikube o producción):
 
 | Archivo | Tipo | Función |
 |---|---|---|
 | `namespace.yaml` | Namespace | Aísla todos los recursos en `advance-trading` |
 | `configmap.yaml` | ConfigMap | Variables no secretas (SMTP, CORS, DB_URL) |
 | `secret.yaml` | Secret | Credenciales SMTP, ENCRYPTION_KEY, MercadoPago tokens |
-| `db-init-configmap.yaml` | ConfigMap | Script SQL inicial (tablas, monedas, usuario demo) |
+| `db-init-configmap.yaml` | ConfigMap | Script SQL inicial (tablas, monedas) |
 | `deployment-db.yaml` | Deployment | PostgreSQL 16 (1 réplica, 10GB persistente) |
 | `pvc-db.yaml` | PersistentVolumeClaim | 10GB de almacenamiento persistente para la DB |
 | `service-db.yaml` | Service | Expone PostgreSQL internamente como `db:5432` |
-| `deployment-backend.yaml` | Deployment | API Node.js (2 réplicas, imagen Docker Hub) |
-| `service-backend.yaml` | Service | Expone backend internamente como `backend:5000` |
+| `deployment-backend.yaml` | Deployment | API Node.js (1 réplica, imagen Docker Hub) |
+| `service-backend.yaml` | Service | Expone backend internamente como `backend-service:5000` |
 | `deployment-frontend.yaml` | Deployment | Frontend con Nginx (2 réplicas, imagen Docker Hub) |
 | `service-frontend.yaml` | Service | Expone frontend como `ClusterIP` en puerto 80 |
 | `ingress.yaml` | Ingress | Enruta tráfico: `/` → frontend, `/api` → backend |
 | `kustomization.yaml` | Kustomization | Orquestador que aplica todos los manifiestos juntos |
 
-Para desplegar en Kubernetes:
+El clúster actual (Docker Desktop Kubernetes) tiene el namespace `advance-trading` activo con los pods funcionando:
+
+```bash
+kubectl get pods -n advance-trading
+NAME                        READY   STATUS    RESTARTS   AGE
+backend-6f4c94bc94-fss9q    1/1     Running   0          22m
+frontend-86b5f549ff-7tbp5   1/1     Running   0          23m
+frontend-86b5f549ff-8csvp   1/1     Running   0          23m
+postgres-c8f78968d-f8zkl    1/1     Running   0          28m
+```
+
+Para desplegar o actualizar:
 ```bash
 kubectl apply -k k8s/
+```
+
+### 🔄 GitOps con ArgoCD
+
+La carpeta `argocd/` contiene los manifiestos para sincronización automática (GitOps) usando **ArgoCD**:
+
+| Archivo | Descripción |
+|---|---|
+| `project.yaml` | Define el proyecto ArgoCD con permisos y orígenes |
+| `application.yaml` | Application que apunta a `https://github.com/karen-judith/advance.git` (rama `main`) y sincroniza `k8s/` |
+| `install.ps1` | Script de instalación automática para Windows PowerShell |
+
+**Instalación rápida:**
+```powershell
+.\argocd\install.ps1
+```
+
+Esto instala ArgoCD en el namespace `argocd`, aplica el project y application, y ArgoCD sincroniza automáticamente los manifiestos de `k8s/` desde GitHub.
+
+**Características de la sincronización:**
+- `prune: true` — elimina recursos que ya no están en Git
+- `selfHeal: true` — revierte cambios manuales al estado de Git
+- `CreateNamespace: true` — crea el namespace automáticamente
+- Hasta 5 reintentos con backoff progresivo
+
+**Comandos útiles:**
+```bash
+# Acceder al panel web de ArgoCD
+kubectl port-forward -n argocd service/argocd-server 8080:443
+# Abrir https://localhost:8080 (usuario: admin)
+
+# Ver aplicaciones sincronizadas
+kubectl get applications -n argocd
+
+# Forzar sincronización manual
+kubectl exec -n argocd deploy/argocd-server -- argocd app sync advance-trading
 ```
 
 ## Requisitos
@@ -263,6 +310,8 @@ Esto levanta **8 servicios**:
 Para producción se incluyen:
 
 - **Manifiestos Kubernetes** en `k8s/` — aplicar con `kubectl apply -k k8s/`
+- **GitOps con ArgoCD** en `argocd/` — sincronización automática desde GitHub
+- **Infraestructura como Código** en `terraform/` — aprovisionamiento de EKS en AWS
 - **Imágenes Docker Hub**: `karenhjhi/advance-trading-backend` y `karenhjhi/advance-trading-frontend`
 - **kind**: Clúster local para pruebas (visible en `docker ps` como `docker-desktop`)
 
@@ -272,6 +321,7 @@ Recomendaciones:
 - Usar tokens de producción de MercadoPago (no sandbox)
 - Configurar Ingress con TLS real
 - No exponer el puerto de PostgreSQL públicamente
+- Para producción en AWS: `cd terraform && terraform apply` (requiere credenciales AWS)
 
 ## Seguridad
 

@@ -1,0 +1,583 @@
+\documentclass[12pt,oneside]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{longtable}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{float}
+\usepackage{tabularx}
+\usepackage{booktabs}
+
+\geometry{a4paper, margin=2.5cm}
+
+\definecolor{codebg}{rgb}{0.95,0.95,0.95}
+\definecolor{titlepurple}{rgb}{0.66,0.33,0.87}
+
+\lstset{
+    backgroundcolor=\color{codebg},
+    basicstyle=\footnotesize\ttfamily,
+    breaklines=true,
+    frame=single,
+    numbers=left
+}
+
+\title{\color{titlepurple}\Huge\textbf{Advance Trading} \\[0.5cm]
+\Large Plataforma de Trading de Criptomonedas \\[0.3cm]
+\small Documentación Técnica del Proyecto}
+
+\author{}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+\newpage
+
+\tableofcontents
+\newpage
+
+\section{Introducción}
+
+\textbf{Advance Trading} es una plataforma web para comprar y vender criptomonedas (Bitcoin, Ethereum, Binance Coin, Solana) utilizando pesos colombianos a través de MercadoPago (PSE, Efecty, Baloto, tarjetas bancarias). Incluye seguridad de doble factor (2FA), cifrado AES-256, un asistente interactivo 3D (AdvanceBot), y un sistema completo de monitoreo con métricas, logs y trazas distribuidas.
+
+\subsection{¿Qué permite hacer la plataforma?}
+
+\begin{itemize}
+    \item Registrarse con correo electrónico y verificación por código
+    \item Depositar dinero en COP mediante MercadoPago
+    \item Comprar y vender criptomonedas (BTC, ETH, BNB, SOL)
+    \item Retirar dinero a cuentas bancarias colombianas
+    \item Visualizar un robot animado (AdvanceBot) que guía al usuario
+    \item Ver gráficos de monitoreo en tiempo real (Grafana)
+\end{itemize}
+
+\section{Stack Tecnológico}
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+\textbf{Componente} & \textbf{Tecnología} \\
+\midrule
+Frontend & HTML, CSS, JavaScript Vanilla (Liquid Glass UI) \\
+Backend & Node.js + Express \\
+Base de Datos & PostgreSQL 16 \\
+Contenedores & Docker Compose \\
+Pagos & MercadoPago SDK v2 (Colombia/Latam) \\
+Seguridad & Helmet, bcrypt, AES-256-CBC, express-rate-limit, express-validator \\
+Email & Nodemailer + Gmail SMTP \\
+Monitoreo & Grafana 11 + Loki 3 + Prometheus 2.53 + Tempo 2.6 + Promtail 3 \\
+Trazas & OpenTelemetry (instrumentación HTTP, Express, PostgreSQL) \\
+Métricas & prom-client (CPU, memoria, duración de requests) \\
+Orquestación & Kubernetes (kind local, manifiestos en k8s/) \\
+Imágenes Docker & Docker Hub: karenhjhi/advance-trading-backend y frontend \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Estructura del Proyecto}
+
+\subsection{Árbol de Directorios}
+
+\begin{lstlisting}
+advance-trading/
+├── frontend/                  # Interfaz de usuario
+│   ├── index.html            # Página principal (toda la UI)
+│   ├── nginx.conf            # Configuración del servidor web
+│   ├── Dockerfile            # Receta del contenedor
+│   ├── manifest.json         # Icono para PWA
+│   ├── sw.js                 # Service Worker
+│   └── icon.svg              # Icono de la aplicación
+│
+├── backend/                   # Lógica del servidor
+│   ├── server.js             # Código principal (API completa)
+│   ├── tracing.js            # OpenTelemetry para trazas
+│   ├── package.json          # Dependencias Node.js
+│   ├── Dockerfile            # Receta del contenedor
+│   └── .env                  # Variables de entorno (secretos)
+│
+├── db/                        # Base de datos
+│   └── init.sql              # Script de inicialización (tablas)
+│
+├── monitoring/                # Monitoreo
+│   ├── loki-config.yaml      # Configuración de Loki
+│   ├── promtail-config.yaml  # Configuración de Promtail
+│   ├── prometheus-config.yaml# Configuración de Prometheus
+│   ├── tempo-config.yaml     # Configuración de Tempo
+│   ├── grafana-datasource.yaml # Datasources de Grafana
+│   ├── grafana-dashboards.yaml # Dashboard automático
+│   └── advance-dashboard.json # Panel de control
+│
+├── k8s/                       # Kubernetes (13 manifiestos)
+│   ├── namespace.yaml        # Espacio de nombres
+│   ├── configmap.yaml        # Configuraciones no secretas
+│   ├── secret.yaml           # Secretos (contraseñas)
+│   ├── deployment-db.yaml    # Deployment de PostgreSQL
+│   ├── pvc-db.yaml           # Volumen persistente
+│   ├── service-db.yaml       # Servicio de DB
+│   ├── deployment-backend.yaml # Deployment del backend
+│   ├── service-backend.yaml  # Servicio del backend
+│   ├── deployment-frontend.yaml # Deployment del frontend
+│   ├── service-frontend.yaml # Servicio del frontend
+│   ├── ingress.yaml          # Puerta de entrada HTTP
+│   ├── db-init-configmap.yaml # SQL inicial en ConfigMap
+│   └── kustomization.yaml    # Orquestador Kustomize
+│
+├── docker-compose.yml        # Orquestación de contenedores
+├── .env                      # Variables de entorno (local)
+├── .gitignore               # Archivos ignorados por Git
+├── generate-traffic.sh       # Script de prueba de tráfico
+└── README.md                 # Documentación principal
+\end{lstlisting}
+
+\section{Frontend — \texttt{frontend/index.html}}
+
+Es un único archivo que contiene toda la interfaz de usuario. Está organizado en pantallas (divs ocultos/mostrados según la acción del usuario).
+
+\subsection{Pantallas del Sistema}
+
+\begin{longtable}{|p{4cm}|p{10cm}|}
+\hline
+\textbf{Pantalla} & \textbf{Función} \\
+\hline
+Login & Iniciar sesión con email y contraseña \\
+\hline
+Registro & Crear cuenta nueva (nombre, email, contraseña) \\
+\hline
+Dashboard & Panel principal: saldo, precios de criptos, robot interactivo \\
+\hline
+Trade & Comprar y vender Bitcoin, Ethereum, Binance Coin, Solana \\
+\hline
+Wallet (Billetera) & Depositar y retirar dinero mediante MercadoPago \\
+\hline
+Historial & Todas las operaciones realizadas por el usuario \\
+\hline
+Ajustes & Configurar PIN de seguridad de 6 dígitos \\
+\hline
+Forgot Password & Recuperar contraseña mediante código enviado al email \\
+\hline
+\end{longtable}
+
+\subsection{AdvanceBot}
+
+El robot 3D con rostro LED neon que aparece en la pantalla. Sus características:
+
+\begin{itemize}
+    \item \textbf{Expresiones faciales}: normal, pensando, hablando, feliz, triste, emocionado, cool, guiño, risa, dinero, sorprendido, amor, sospechoso
+    \item \textbf{Interacción}: Se puede arrastrar por toda la pantalla
+    \item \textbf{Función}: Guía al usuario, da consejos al comprar/vender, reacciona a las operaciones
+    \item \textbf{Liquid Glass UI}: Efectos de vidrio con blur, transparencia y brillo neon
+\end{itemize}
+
+\subsection{\texttt{frontend/nginx.conf}}
+
+Configura el servidor web Nginx para redirigir las peticiones al backend internamente:
+
+\begin{lstlisting}
+location /api/ {
+    proxy_pass http://backend:5000;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+}
+\end{lstlisting}
+
+\section{Backend — \texttt{backend/server.js}}
+
+Es el archivo más importante del proyecto (1153 líneas). Contiene toda la lógica del servidor.
+
+\subsection{Funciones Principales}
+
+\subsubsection{Autenticación}
+\begin{itemize}
+    \item \texttt{POST /api/send-code}: Envía código de verificación al email
+    \item \texttt{POST /api/register}: Registra nuevo usuario (nombre, email, contraseña hasheada con bcrypt)
+    \item \texttt{POST /api/login}: Verifica credenciales e inicia sesión
+    \item \texttt{POST /api/forgot-password}: Envía código de 6 dígitos al email
+    \item \texttt{POST /api/verify-reset-code}: Verifica el código de recuperación
+    \item \texttt{POST /api/reset-password}: Restablece la contraseña
+\end{itemize}
+
+\subsubsection{Trading}
+\begin{itemize}
+    \item \texttt{GET /api/precios}: Obtiene precios actualizados de criptomonedas
+    \item \texttt{POST /api/trade}: Ejecuta compra/venta (verifica saldo, actualiza portafolio)
+    \item \texttt{GET /api/usuario/:id/portafolio}: Obtiene las tenencias del usuario
+    \item \texttt{GET /api/user/:id/transaction-history}: Historial de transacciones
+\end{itemize}
+
+\subsubsection{Pagos MercadoPago}
+\begin{itemize}
+    \item \texttt{POST /api/payment/create}: Inicia depósito, envía código 2FA
+    \item \texttt{POST /api/payment/confirm}: Confirma depósito con código email + PIN, crea pago en MP
+    \item \texttt{POST /api/payment/webhook}: Webhook de MercadoPago (confirmación en tiempo real)
+    \item \texttt{POST /api/withdraw}: Solicita retiro a cuenta bancaria colombiana
+    \item \texttt{POST /api/withdraw/confirm}: Confirma retiro con 2FA
+    \item \texttt{GET /api/user/:id/mercadopago-history}: Historial de pagos MP
+    \item \texttt{GET /api/user/:id/financial-summary}: Resumen financiero del usuario
+\end{itemize}
+
+\subsubsection{Seguridad y Auditoría}
+\begin{itemize}
+    \item \texttt{POST /api/user/:id/set-pin}: Configura PIN de seguridad (6 dígitos)
+    \item \texttt{POST /api/user/:id/verify-pin}: Verifica PIN
+    \item \texttt{GET /api/usuario/:id/access-log}: Registro de accesos
+    \item \texttt{GET /api/usuario/:id/trade-audit}: Auditoría de operaciones
+    \item \texttt{GET /api/usuario/:id/balance-history}: Historial de saldo
+\end{itemize}
+
+\subsubsection{Monitoreo}
+\begin{itemize}
+    \item \texttt{GET /metrics}: Expone métricas en formato Prometheus (CPU, memoria, duración de requests, cantidad de requests)
+\end{itemize}
+
+\subsection{Seguridad Implementada}
+
+\begin{itemize}
+    \item \textbf{2FA}: Doble verificación para depósitos y retiros (código email + PIN de 6 dígitos)
+    \item \textbf{AES-256-CBC}: Cifrado de todos los montos sensibles antes de almacenarlos en DB
+    \item \textbf{bcrypt}: Hash de contraseñas con salt
+    \item \textbf{Rate Limiting}: Límite de 100 requests global cada 15 minutos, 10 intentos de auth
+    \item \textbf{Helmet}: Headers de seguridad HTTP (CSP, X-Frame-Options, etc.)
+    \item \textbf{CORS restringido}: Solo orígenes configurados en ALLOWED\_ORIGINS
+    \item \textbf{XSS Sanitization}: Limpieza de inputs con sanitizeHtml
+    \item \textbf{express-validator}: Validación de todos los endpoints
+    \item \textbf{SQL Injection prevention}: Parámetros parametrizados en todas las queries
+\end{itemize}
+
+\subsection{Ejemplo de Flujo de un Depósito}
+
+\begin{enumerate}
+    \item Usuario ingresa monto en COP en la billetera
+    \item Frontend llama a \texttt{POST /api/payment/create}
+    \item Backend envía código de verificación al email del usuario
+    \item Usuario ingresa el código + su PIN de seguridad
+    \item Frontend llama a \texttt{POST /api/payment/confirm}
+    \item Backend verifica código y PIN, crea preferencia en MercadoPago
+    \item MercadoPago redirige al usuario al portal de pago (PSE, Efecty, etc.)
+    \item Al completarse, MercadoPago notifica via webhook
+    \item Backend actualiza el saldo del usuario y registra en \texttt{mercadopago\_payments}
+\end{enumerate}
+
+\section{\texttt{backend/tracing.js} — OpenTelemetry}
+
+Se ejecuta al iniciar el backend. Configura el SDK de OpenTelemetry para:
+
+\begin{itemize}
+    \item \textbf{Instrumentar HTTP}: Captura todas las peticiones entrantes y salientes
+    \item \textbf{Instrumentar Express}: Crea spans para cada ruta del backend
+    \item \textbf{Instrumentar PostgreSQL}: Captura queries a la base de datos
+    \item \textbf{Exportar a Tempo}: Envía las trazas via OTLP HTTP a \texttt{tempo:4318/v1/traces}
+\end{itemize}
+
+\begin{lstlisting}[language=JavaScript, caption=tracing.js simplificado]
+const sdk = new NodeSDK({
+    traceExporter: new OTLPTraceExporter({
+        url: 'http://tempo:4318/v1/traces'
+    }),
+    instrumentations: [
+        new HttpInstrumentation(),
+        new ExpressInstrumentation(),
+        new PgInstrumentation()
+    ]
+});
+sdk.start();
+\end{lstlisting}
+
+\section{Base de Datos — \texttt{db/init.sql}}
+
+Define el esquema completo de PostgreSQL. Se ejecuta automáticamente al crear el contenedor de la base de datos.
+
+\subsection{Tablas del Sistema}
+
+\begin{longtable}{|p{3.5cm}|p{11cm}|}
+\hline
+\textbf{Tabla} & \textbf{Columnas principales} \\
+\hline
+\texttt{monedas} & id, nombre (BTC/ETH/BNB/SOL), simbolo, precio\_usd \\
+\hline
+\texttt{usuarios} & id, nombre, email, password\_hash, saldo\_usd (default 0.00), security\_pin, reset\_code, created\_at \\
+\hline
+\texttt{transacciones} & id, usuario\_id, moneda\_id, tipo (compra/venta), cantidad, precio\_usd, total\_usd, created\_at \\
+\hline
+\texttt{portafolios} & id, usuario\_id, moneda\_id, cantidad (unique por usuario+moneda) \\
+\hline
+\texttt{mercadopago\_payments} & id, usuario\_id, mp\_payment\_id, amount\_cop, amount\_usd, exchange\_rate, payment\_method, payer\_email, mp\_status, mp\_fee, flow\_type, created\_at \\
+\hline
+\texttt{deposit\_log} & id, usuario\_id, amount, amount\_encrypted, method, reference, status, created\_at \\
+\hline
+\texttt{withdrawal\_log} & id, usuario\_id, amount, amount\_encrypted, method, bank\_name, account\_number, status, created\_at \\
+\hline
+\texttt{access\_log} & id, usuario\_id, action (login/logout/register), ip\_address, user\_agent, status, created\_at \\
+\hline
+\texttt{trade\_audit} & id, usuario\_id, moneda\_id, tipo, cantidad, cantidad\_encrypted, precio\_usd, precio\_encrypted, saldo\_before, saldo\_after, created\_at \\
+\hline
+\texttt{balance\_snapshots} & id, usuario\_id, saldo\_usd, saldo\_encrypted, snapshot\_date, created\_at \\
+\hline
+\end{longtable}
+
+\subsection{Características de la Base de Datos}
+
+\begin{itemize}
+    \item \textbf{Saldo inicial}: \$0.00 USD (no hay dinero de prueba)
+    \item \textbf{Cifrado AES-256}: Los montos se almacenan tanto en texto plano como encriptados para auditoría
+    \item \textbf{Relaciones}: Todas las tablas tienen claves foráneas con ON DELETE CASCADE o RESTRICT según corresponda
+    \item \textbf{Monedas precargadas}: Bitcoin (\$63,284.50), Ethereum (\$3,450.20), Binance Coin (\$590.30), Solana (\$145.80)
+    \item \textbf{Usuario demo}: Opcional, insertado al inicio (default desactivado en producción)
+\end{itemize}
+
+\section{Docker Compose — \texttt{docker-compose.yml}}
+
+Orquesta 8 contenedores que se inician con un solo comando:
+
+\[
+\texttt{docker compose up -d --build}
+\]
+
+\subsection{Servicios}
+
+\begin{longtable}{|p{2.5cm}|p{2.5cm}|p{9cm}|}
+\hline
+\textbf{Servicio} & \textbf{Puerto} & \textbf{Función} \\
+\hline
+Frontend & 3000 & Interfaz de usuario (Nginx + HTML/CSS/JS) \\
+\hline
+Backend & 5000 & API REST + endpoint /metrics \\
+\hline
+PostgreSQL & 5434 (host) / 5432 (container) & Base de datos relacional \\
+\hline
+Loki & 3100 & Almacenamiento y consulta de logs \\
+\hline
+Promtail & - & Recolector de logs de contenedores Docker \\
+\hline
+Prometheus & 9090 & Almacenamiento de métricas (CPU, memoria, requests) \\
+\hline
+Tempo & 3200 (HTTP) / 4318 (OTLP) & Almacenamiento de trazas distribuidas \\
+\hline
+Grafana & 3101 & Dashboard unificado (logs + métricas + trazas) \\
+\hline
+\end{longtable}
+
+\subsection{Diagrama de Arquitectura}
+
+\begin{verbatim}
+    Usuario
+       |
+       v
+  +----------+       +----------+       +----------+
+  | FRONTEND |-----> | BACKEND  |-----> |    DB    |
+  | :3000    |       | :5000    |       | :5434    |
+  +----------+       +----+-----+       +----------+
+                          |
+            +-------------+-------------+
+            |             |             |
+            v             v             v
+       +---------+  +----------+  +---------+
+       |  LOKI   |  |PROMETHEUS|  |  TEMPO  |
+       | :3100   |  | :9090    |  |3200/4318|
+       +----+----+  +----------+  +----+----+
+            |                           |
+            v                           v
+       +----------+              +----------+
+       | PROWTAIL |              | GRAFANA  |
+       +----------+              | :3101    |
+                                 +----------+
+\end{verbatim}
+
+\section{Monitoreo — Carpeta \texttt{monitoring/}}
+
+\subsection{Loki (\texttt{loki-config.yaml})}
+
+\textbf{Qué hace}: Almacena logs (registros de texto) de todos los contenedores. Permite consultar con lenguaje LogQL.
+
+\textbf{Ejemplo de consulta en Grafana}:
+\begin{lstlisting}
+{container="advance-trading-backend-1"} |= "error"
+{container="advance-trading-backend-1"} |= "login"
+\end{lstlisting}
+
+\textbf{Configuración}: Usa el motor de índices TSDB con esquema v13 y almacenamiento local en disco.
+
+\subsection{Promtail (\texttt{promtail-config.yaml})}
+
+\textbf{Qué hace}: Es el recolector. Lee los logs de los contenedores Docker y los envía a Loki. También puede leer archivos de log del sistema.
+
+\subsection{Prometheus (\texttt{prometheus-config.yaml})}
+
+\textbf{Qué hace}: Almacena métricas numéricas (rendimiento). Cada 15 segundos consulta al backend en \texttt{/metrics}.
+
+\textbf{Ejemplos de métricas disponibles}:
+\begin{itemize}
+    \item \texttt{http\_request\_duration\_seconds\_count}: Cantidad de requests por endpoint
+    \item \texttt{http\_request\_duration\_seconds\_bucket}: Distribución de tiempos de respuesta
+    \item \texttt{process\_cpu\_user\_seconds\_total}: CPU usada por el backend
+    \item \texttt{nodejs\_heap\_size\_bytes}: Memoria heap de Node.js
+\end{itemize}
+
+\subsection{Tempo (\texttt{tempo-config.yaml})}
+
+\textbf{Qué hace}: Almacena trazas distribuidas. Cada petición al backend genera una traza que muestra el tiempo de cada paso.
+
+\textbf{Puertos}:
+\begin{itemize}
+    \item 3200: API HTTP de Tempo (para consultas de Grafana)
+    \item 4318: Receptor OTLP HTTP (para recibir trazas del backend)
+\end{itemize}
+
+\subsection{Grafana}
+
+Panel de control unificado. Acceso: \texttt{http://localhost:3101}, usuario: \texttt{admin}, contraseña: \texttt{advance2024}.
+
+\textbf{Datasources preconfigurados}:
+\begin{itemize}
+    \item \textbf{Loki}: Para consultar logs con LogQL
+    \item \textbf{Prometheus}: Para consultar métricas con PromQL
+    \item \textbf{Tempo}: Para buscar y visualizar trazas distribuidas
+\end{itemize}
+
+\textbf{Dashboard precargado}: \texttt{advance-dashboard.json} — panel con gráficos de logs, métricas y rendimiento.
+
+\section{Kubernetes — Carpeta \texttt{k8s/}}
+
+Contiene 13 manifiestos YAML para desplegar la aplicación en un clúster Kubernetes (compatible con kind, minikube, o producción).
+
+\subsection{Manifiestos}
+
+\begin{longtable}{|p{4cm}|p{2.5cm}|p{8cm}|}
+\hline
+\textbf{Archivo} & \textbf{Tipo K8s} & \textbf{Función} \\
+\hline
+\texttt{namespace.yaml} & Namespace & Aísla todos los recursos bajo \texttt{advance-trading} \\
+\hline
+\texttt{configmap.yaml} & ConfigMap & Variables no secretas (SMTP host/port, CORS, DB URL) \\
+\hline
+\texttt{secret.yaml} & Secret & Credenciales SMTP, clave encriptación, tokens MP \\
+\hline
+\texttt{deployment-db.yaml} & Deployment & PostgreSQL 16, 1 réplica, 10GB persistente \\
+\hline
+\texttt{pvc-db.yaml} & PVC & Solicitud de 10GB de almacenamiento persistente \\
+\hline
+\texttt{service-db.yaml} & Service & Expone DB internamente como \texttt{db:5432} \\
+\hline
+\texttt{deployment-backend.yaml} & Deployment & API Node.js, 2 réplicas, imagen Docker Hub \\
+\hline
+\texttt{service-backend.yaml} & Service & Expone backend internamente como \texttt{backend:5000} \\
+\hline
+\texttt{deployment-frontend.yaml} & Deployment & Frontend Nginx, 2 réplicas, imagen Docker Hub \\
+\hline
+\texttt{service-frontend.yaml} & Service & Expone frontend como ClusterIP en puerto 80 \\
+\hline
+\texttt{ingress.yaml} & Ingress | Enruta tráfico: / → frontend, /api → backend \\
+\hline
+\texttt{db-init-configmap.yaml} & ConfigMap & Script SQL inicial en ConfigMap \\
+\hline
+\texttt{kustomization.yaml} & Kustomization & Orquestador que aplica todos juntos \\
+\hline
+\end{longtable}
+
+\subsection{Despliegue}
+
+\begin{lstlisting}[language=bash]
+kubectl apply -k k8s/
+\end{lstlisting}
+
+\section{Dependencias — \texttt{backend/package.json}}
+
+\begin{longtable}{|p{5cm}|p{10cm}|}
+\hline
+\textbf{Paquete} & \textbf{Función} \\
+\hline
+express & Framework web para crear el servidor HTTP \\
+pg & Cliente de PostgreSQL para Node.js \\
+bcrypt & Hash de contraseñas con algoritmo bcrypt \\
+nodemailer & Envío de emails SMTP \\
+mercadopago & SDK oficial de MercadoPago v2 \\
+express-rate-limit & Middleware de limitación de requests \\
+express-validator & Validación y sanitización de inputs \\
+helmet & Headers de seguridad HTTP \\
+prom-client & Generación de métricas para Prometheus \\
+@opentelemetry/sdk-node & SDK de OpenTelemetry para Node.js \\
+@opentelemetry/exporter-trace-otlp-http & Exportador de trazas OTLP HTTP \\
+@opentelemetry/instrumentation-http & Instrumentación automática de HTTP \\
+@opentelemetry/instrumentation-express & Instrumentación automática de Express \\
+@opentelemetry/instrumentation-pg & Instrumentación automática de PostgreSQL \\
+@opentelemetry/resources & Recursos (nombre del servicio, entorno) \\
+@opentelemetry/semantic-conventions & Constantes semánticas de OpenTelemetry \\
+\hline
+\end{longtable}
+
+\section{Seguridad}
+
+\subsection{Encriptación AES-256}
+
+Todos los montos financieros se almacenan cifrados en la base de datos usando AES-256-CBC:
+
+\begin{itemize}
+    \item \textbf{Clave}: 64 caracteres hexadecimales (32 bytes), almacenada en \texttt{ENCRYPTION\_KEY}
+    \item \textbf{IV}: Vector de inicialización único por cada valor cifrado
+    \item \textbf{Columnas encriptadas}: \texttt{amount\_encrypted}, \texttt{precio\_encrypted}, \texttt{saldo\_encrypted}, etc.
+    \item Las columnas en texto plano se mantienen para consultas, las encriptadas para auditoría
+\end{itemize}
+
+\subsection{Autenticación de Doble Factor (2FA)}
+
+Para operaciones sensibles (depósitos y retiros):
+\begin{enumerate}
+    \item El usuario solicita la operación
+    \item El backend envía un código de 6 dígitos al email del usuario (expira en 10 minutos)
+    \item El usuario ingresa el código
+    \item El usuario ingresa su PIN de seguridad (configurado previamente en Ajustes)
+    \item Solo después de verificar ambos, se ejecuta la operación
+\end{enumerate}
+
+\section{Script de Prueba — \texttt{generate-traffic.sh}}
+
+Script Bash que genera tráfico de prueba para verificar el monitoreo:
+
+\begin{itemize}
+    \item Consulta precios 15 veces
+    \item Intenta login con credenciales incorrectas (3 veces)
+    \item Consulta endpoints de historial, portafolio, resumen financiero
+    \item Genera 20 requests aleatorios a distintos endpoints
+\end{itemize}
+
+\section{Guía de Uso}
+
+\subsection{Inicio Rápido}
+
+\begin{enumerate}
+    \item Crear archivo \texttt{.env} en la raíz con las variables SMTP, ENCRYPTION\_KEY y tokens MP
+    \item Ejecutar \texttt{docker compose up -d --build}
+    \item Abrir \texttt{http://localhost:3000}
+    \item Crear una cuenta
+    \item Explorar el dashboard, depositar, operar, retirar
+    \item Abrir \texttt{http://localhost:3101} (admin / advance2024) para ver monitoreo
+\end{enumerate}
+
+\subsection{Visualización en Grafana}
+
+\begin{itemize}
+    \item \textbf{Métricas}: Explore > Prometheus > \texttt{http\_request\_duration\_seconds\_count}
+    \item \textbf{Logs}: Explore > Loki > \texttt{\{container="advance-trading-backend-1"\} |= "error"}
+    \item \textbf{Trazas}: Explore > Tempo > Search > seleccionar rango de tiempo
+\end{itemize}
+
+\section{Notas Importantes}
+
+\begin{itemize}
+    \item \textbf{Saldo inicial}: \$0.00 USD — no hay dinero de prueba
+    \item \textbf{Login}: No hay credenciales demo predefinidas
+    \item \textbf{Puerto DB}: 5434 (por conflicto con PostgreSQL local en 5433)
+    \item \textbf{Webhook MP}: Requiere URL pública en producción (ngrok o dominio real)
+    \item \textbf{Códigos de verificación}: Expiran en 10 minutos
+    \item \textbf{PIN de seguridad}: 6 dígitos, configurable desde Ajustes
+    \item \textbf{Tokens MP}: Actualmente son placeholders (TEST-123 / TEST-456)
+    \item \textbf{Reconstrucción}: \texttt{docker compose up -d --build} para rebuildear
+\end{itemize}
+
+\end{document}

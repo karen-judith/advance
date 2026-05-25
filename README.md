@@ -264,7 +264,7 @@ Para producción se incluyen:
 
 - **Manifiestos Kubernetes** en `k8s/` — aplicar con `kubectl apply -k k8s/`
 - **Imágenes Docker Hub**: `karenhjhi/advance-trading-backend` y `karenhjhi/advance-trading-frontend`
-- **kind**: Clúster local para pruebas (visible en `docker ps` como `desktop-control-plane`)
+- **kind**: Clúster local para pruebas (visible en `docker ps` como `docker-desktop`)
 
 Recomendaciones:
 - Usar un dominio real con HTTPS
